@@ -65,9 +65,8 @@
   .newbest{color:#ff7a7a;font-weight:700;font-size:13px;min-height:1em}
   .btns{display:flex;gap:8px;justify-content:center;margin-top:14px}
   .me{display:flex;align-items:center;gap:12px;margin:10px 0 4px;text-align:left}
-  .badge{flex:none;width:78px;height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    font-weight:900;font-size:13px;line-height:1.1;border:3px solid currentColor;background:rgba(0,0,0,.35);box-shadow:0 0 18px -4px currentColor}
-  .badge b{font-size:22px}
+  .badge{flex:none;width:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:12px;line-height:1.2;gap:2px}
+  .emb{display:inline-block;vertical-align:middle}
   .meinfo{flex:1;min-width:0}
   .meinfo input,.join input{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);
     background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:17px;font-weight:700;user-select:text;-webkit-user-select:text}
@@ -136,7 +135,7 @@
   <div class="row"><div class="lab">相手の強さ</div><div class="seg" id="optLv">
     <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>かなり速い</small></button></div></div>
   <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optQ">
-    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button></div></div>
+    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="4">激ムズ</button></div></div>
   <div class="row"><div class="lab">問題の数</div><div class="seg" id="optN">
     <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
   <button class="btn go" id="goBtn">スタート</button>
@@ -188,6 +187,7 @@
 
 <script type="module">
 import * as THREE from 'three';
+import { emblemSVG } from './emblem.js';
 import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -812,23 +812,24 @@ const SFX = {
 
 /* ============ 問題（オリジナル。レベル1〜5、questions/lv○.json） ============ */
 // レベル: 1=とても簡単 2=簡単 3=ふつう 4=難しい 5=とても難しい
-const QB = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+const QB = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
 async function loadQuestions() {
-  await Promise.all([1, 2, 3, 4, 5].map(async L => {
+  await Promise.all([1, 2, 3, 4, 5, 6].map(async L => {
     try { const r = await fetch(`questions/lv${L}.json`); const a = await r.json(); QB[L] = a.map((x, i) => ({ q: x[0], a: x[1], y: x[2], lv: L, id: `${L}:${i}` })); } catch (e) { console.warn('問題の読み込み失敗', L, e); }
   }));
 }
 // ランク帯ごとの「問題レベルの混ぜ方」（%）。上のランクほど難しい問題が多い
+// レベル: 1かんたん 2ふつう 3ややむずかしい 4むずかしい 5難問 6超難問（マスター用）
 const LV_MIX = [
-  [70, 30, 0, 0, 0],   // ビギナー
-  [25, 55, 20, 0, 0],  // ブロンズ
-  [0, 25, 55, 20, 0],  // シルバー
-  [0, 0, 25, 55, 20],  // ゴールド
-  [0, 0, 0, 30, 70],   // マスター
+  [10, 40, 35, 15, 0, 0],  // ビギナー
+  [0, 15, 40, 35, 10, 0],  // ブロンズ
+  [0, 0, 20, 40, 30, 10],  // シルバー
+  [0, 0, 0, 20, 45, 35],   // ゴールド
+  [0, 0, 0, 0, 25, 75],    // マスター（ほぼ超難問）
 ];
 // 部屋の中でいちばん低いランク帯〜高いランク帯の混ぜ方を平均して使う
 function mixForTiers(lo, hi) {
-  const w = [0, 0, 0, 0, 0];
+  const w = [0, 0, 0, 0, 0, 0];
   for (let t = lo; t <= hi; t++) LV_MIX[t].forEach((v, k) => w[k] += v / (hi - lo + 1));
   return w;
 }
@@ -838,8 +839,8 @@ function pickQuestions(n, weights) {
   let recent = []; try { recent = JSON.parse(localStorage.getItem('hs_recent2') || '[]'); } catch (e) {}
   const rs = new Set(recent), used = new Set(), out = [];
   for (let k = 0; k < n; k++) {
-    let w = weights.map((v, i) => QB[i + 1].length ? v : 0); if (w.every(v => !v)) w = [1, 1, 1, 1, 1].map((v, i) => QB[i + 1].length ? 1 : 0);
-    let r = Math.random() * w.reduce((a, b) => a + b, 0), L = 1; for (let i = 0; i < 5; i++) { r -= w[i]; if (r <= 0) { L = i + 1; break; } }
+    let w = weights.map((v, i) => QB[i + 1].length ? v : 0); if (w.every(v => !v)) w = [1, 1, 1, 1, 1, 1].map((v, i) => QB[i + 1].length ? 1 : 0);
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), L = 1; for (let i = 0; i < 6; i++) { r -= w[i]; if (r <= 0) { L = i + 1; break; } }
     const pool = QB[L].filter(q => !used.has(q.id)); if (!pool.length) { k--; weights = weights.map((v, i) => i === L - 1 ? 0 : v); if (weights.every(v => !v)) break; continue; }
     const fresh = pool.filter(q => !rs.has(q.id)); const src = fresh.length ? fresh : pool;
     const q = src[Math.floor(Math.random() * src.length)]; used.add(q.id); out.push(q);
@@ -904,7 +905,7 @@ function startQuestion() {
   const rnd = Math.random;
   G.cpuPlan = [0, 2, 3].map(i => {
     // 問題がむずかしいほど、CPUも押すのが遅く・まちがえやすくなる
-    const L = botParams(G.players[i].str - (Q.lv - 1 - G.players[i].tier) * .07);
+    const L = botParams(G.players[i].str - (Q.lv - 2 - G.players[i].tier) * .07);
     return rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + rnd() * L.span, .25, 1)), delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
   }).filter(Boolean);
   G.ANS_LIMIT = Math.max(10, 3 + Q.y.length * 1.3);
@@ -1103,7 +1104,8 @@ G.lv = load('hs_lv', 1); G.n = load('hs_n', 10); G.qd = load('hs_qd', -1); G.rn 
 
 const PANELS = ['home', 'menu', 'match', 'room', 'stats', 'result'];
 function show(id) { PANELS.forEach(p => $(p).style.display = p === id ? 'flex' : 'none'); }
-function badgeHTML(rp) { const i = rankIdx(rp), t = Math.floor(i / 3); return `<span style="font-size:12px">${TIERS[t]}</span><b>${SUBS[i % 3]}</b>`; }
+function badgeHTML(rp) { return emblemSVG(rp, 76) + `<span>${rankName(rp)}</span>`; }
+function embI(rp, n = 22) { return `<span class="emb">${emblemSVG(rp, n)}</span>`; }
 function paintBadge(el, rp) { el.innerHTML = badgeHTML(rp); el.style.color = TIER_COLORS[tierOf(rp)]; }
 function rpText(rp) {
   const i = rankIdx(rp);
@@ -1163,7 +1165,7 @@ let matchRange = [0, 0];
 function openMatch() {
   G.phase = 'menu'; show('match');
   const me = { name: ME_DATA.name, rp: ME_DATA.rp };
-  $('mSub').innerHTML = `あなたは <b style="color:${rankColor(me.rp)}">${rankName(me.rp)}</b>`;
+  $('mSub').innerHTML = `あなたは ${embI(me.rp)} <b style="color:${rankColor(me.rp)}">${rankName(me.rp)}</b>`;
   $('mState').textContent = '対戦相手を探しています…'; $('mTime').textContent = '0秒';
   paintSlots($('mSlots'), [me]);
   net.findMatch(me, ({ sec, range, players }) => {
@@ -1181,7 +1183,7 @@ function paintSlots(el, list) {
   el.innerHTML = '';
   for (let k = 0; k < 4; k++) {
     const p = list[k], d = document.createElement('div'); d.className = 'slot' + (p ? ' on' : '');
-    d.innerHTML = p ? `<b>${p.name}</b><span style="color:${rankColor(p.rp)}">${rankName(p.rp)}</span>` : '<span style="opacity:.4">…</span>';
+    d.innerHTML = p ? `<b>${p.name}</b><span style="color:${rankColor(p.rp)}">${embI(p.rp)} ${rankName(p.rp)}</span>` : '<span style="opacity:.4">…</span>';
     el.appendChild(d);
   }
 }
@@ -1247,7 +1249,7 @@ function finishMatch() {
     if (tierOf(ME_DATA.rp) === 0 && d < 0) d = 0; // ビギナーは下がらない
     const before = ME_DATA.rp; ME_DATA.rp = Math.max(0, ME_DATA.rp + d); ME_DATA.peak = Math.max(ME_DATA.peak, ME_DATA.rp);
     const up = rankIdx(ME_DATA.rp) > rankIdx(before), down = rankIdx(ME_DATA.rp) < rankIdx(before);
-    rpEl.innerHTML = `<span style="color:${d >= 0 ? '#7dffa0' : '#ff8a8a'}">${d >= 0 ? '+' : ''}${d} pt</span>　${rankName(ME_DATA.rp)}`;
+    rpEl.innerHTML = `${embI(ME_DATA.rp, 48)}<br><span style="color:${d >= 0 ? '#7dffa0' : '#ff8a8a'}">${d >= 0 ? '+' : ''}${d} pt</span>　${rankName(ME_DATA.rp)}`;
     if (up) { nb.textContent = `ランクアップ！ ${rankName(ME_DATA.rp)}`; nb.style.color = '#ffcc33'; SFX.correct(); }
     else if (down) { nb.textContent = `${rankName(ME_DATA.rp)} に下がりました`; nb.style.color = '#8fb0ff'; }
     STATS.hist.unshift({ d: Date.now(), place, score: myScore, rp: ME_DATA.rp, delta: d }); STATS.hist = STATS.hist.slice(0, 20);
