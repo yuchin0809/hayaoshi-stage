@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#4a1a9e"/>
+      <stop offset=".45" stop-color="#1c0b4a"/>
+      <stop offset="1" stop-color="#05060f"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6c8" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#ffcc33" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beam2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fe8ff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="dome" cx="40%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#ff9c8a"/>
+      <stop offset=".35" stop-color="#ff2a2a"/>
+      <stop offset=".8" stop-color="#b30012"/>
+      <stop offset="1" stop-color="#5e0008"/>
+    </radialGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3f55"/>
+      <stop offset=".5" stop-color="#1a1d2b"/>
+      <stop offset="1" stop-color="#0a0b12"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3b0"/>
+      <stop offset=".5" stop-color="#ffc21a"/>
+      <stop offset="1" stop-color="#b37400"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff4d4d" stop-opacity=".75"/>
+      <stop offset=".5" stop-color="#ff2a6a" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#ff2a6a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="floor" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#3b2a8a"/>
+      <stop offset="1" stop-color="#120a33"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- 観客席（奥の段） -->
+  <g opacity=".9">
+    <path d="M-40 560 Q512 330 1064 560 L1064 640 Q512 420 -40 640 Z" fill="#160b3a"/>
+    <path d="M-40 650 Q512 440 1064 650 L1064 720 Q512 520 -40 720 Z" fill="#1d0f4c"/>
+    <g fill="#ffd36b">
+      <circle cx="90" cy="560" r="5"/><circle cx="170" cy="530" r="4"/><circle cx="250" cy="505" r="5"/><circle cx="330" cy="488" r="4"/>
+      <circle cx="410" cy="476" r="5"/><circle cx="614" cy="476" r="5"/><circle cx="694" cy="488" r="4"/><circle cx="774" cy="505" r="5"/>
+      <circle cx="854" cy="530" r="4"/><circle cx="934" cy="560" r="5"/>
+    </g>
+    <g fill="#8fd8ff">
+      <circle cx="60" cy="660" r="4"/><circle cx="140" cy="628" r="5"/><circle cx="225" cy="602" r="4"/><circle cx="310" cy="584" r="5"/>
+      <circle cx="714" cy="584" r="5"/><circle cx="799" cy="602" r="4"/><circle cx="884" cy="628" r="5"/><circle cx="964" cy="660" r="4"/>
+    </g>
+  </g>
+
+  <!-- スポットライト -->
+  <g style="mix-blend-mode:screen">
+    <polygon points="120,-20 220,-20 560,760 400,760" fill="url(#beam)" opacity=".55"/>
+    <polygon points="804,-20 904,-20 624,760 464,760" fill="url(#beam)" opacity=".55"/>
+    <polygon points="470,-20 554,-20 600,700 424,700" fill="url(#beam2)" opacity=".5"/>
+    <polygon points="-40,120 20,40 420,740 300,780" fill="url(#beam2)" opacity=".3"/>
+    <polygon points="1064,120 1004,40 604,740 724,780" fill="url(#beam2)" opacity=".3"/>
+  </g>
+  <!-- ライト本体 -->
+  <g fill="#fff8d8"><circle cx="170" cy="20" r="26"/><circle cx="854" cy="20" r="26"/><circle cx="512" cy="14" r="22"/></g>
+
+  <!-- ステージの床 -->
+  <ellipse cx="512" cy="800" rx="470" ry="150" fill="url(#floor)"/>
+  <ellipse cx="512" cy="800" rx="470" ry="150" fill="none" stroke="url(#gold)" stroke-width="10"/>
+  <ellipse cx="512" cy="800" rx="420" ry="124" fill="none" stroke="#ffcc33" stroke-opacity=".35" stroke-width="4"/>
+
+  <!-- 押した瞬間の光 -->
+  <circle cx="512" cy="560" r="380" fill="url(#glow)"/>
+  <g stroke="#ffe27a" stroke-width="14" stroke-linecap="round" opacity=".9">
+    <line x1="512" y1="200" x2="512" y2="140"/>
+    <line x1="300" y1="270" x2="262" y2="226"/>
+    <line x1="724" y1="270" x2="762" y2="226"/>
+    <line x1="190" y1="430" x2="132" y2="410"/>
+    <line x1="834" y1="430" x2="892" y2="410"/>
+  </g>
+
+  <!-- 早押しボタン：台 -->
+  <ellipse cx="512" cy="790" rx="300" ry="86" fill="#000" opacity=".55" filter="url(#soft)"/>
+  <path d="M232 640 L232 730 Q512 860 792 730 L792 640 Z" fill="url(#base)"/>
+  <ellipse cx="512" cy="640" rx="280" ry="92" fill="#2b2f42"/>
+  <ellipse cx="512" cy="640" rx="280" ry="92" fill="none" stroke="url(#gold)" stroke-width="12"/>
+  <path d="M232 700 Q512 830 792 700" fill="none" stroke="#ffcc33" stroke-opacity=".5" stroke-width="5"/>
+  <!-- 早押しボタン：赤いドーム -->
+  <ellipse cx="512" cy="636" rx="236" ry="74" fill="#5e0008"/>
+  <path d="M276 636 Q276 330 512 330 Q748 330 748 636 Q512 712 276 636 Z" fill="url(#dome)"/>
+  <!-- つや -->
+  <path d="M330 520 Q340 390 470 362 Q390 420 372 540 Z" fill="#fff" opacity=".55"/>
+  <ellipse cx="610" cy="400" rx="44" ry="20" fill="#fff" opacity=".35" transform="rotate(20 610 400)"/>
+  <!-- Q マーク -->
+  <g transform="translate(512 520)">
+    <circle r="92" fill="none" stroke="#fff" stroke-width="30" opacity=".95"/>
+    <line x1="40" y1="44" x2="98" y2="104" stroke="#fff" stroke-width="32" stroke-linecap="round" opacity=".95"/>
+  </g>
+</svg>

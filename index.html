@@ -6,8 +6,23 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="早押しステージ">
-<title>早押しステージ</title>
+<meta name="apple-mobile-web-app-title" content="クイズアリーナ">
+<title>早押しクイズ - クイズアリーナ</title>
+<meta name="description" content="4人で同じクイズ会場に座って戦う、一人称視点のリアル早押しクイズ。ランクマッチ・友達とのルーム戦・ひとりで練習。かんたんな問題から激ムズまで約2800問。無料・登録なしでブラウザですぐ遊べます。">
+<meta name="theme-color" content="#1c0b4a">
+<link rel="canonical" href="https://yuchin0809.github.io/hayaoshi-stage/">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="クイズアリーナ">
+<meta property="og:title" content="早押しクイズ - クイズアリーナ">
+<meta property="og:description" content="4人で同じクイズ会場に座って戦う、一人称視点のリアル早押しクイズ。ランクマッチ・友達とのルーム戦・ひとりで練習。かんたんな問題から激ムズまで約2800問。無料・登録なしでブラウザですぐ遊べます。">
+<meta property="og:url" content="https://yuchin0809.github.io/hayaoshi-stage/">
+<meta property="og:image" content="https://yuchin0809.github.io/hayaoshi-stage/icons/icon-1024.png">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"早押しクイズ - クイズアリーナ","alternateName":"クイズアリーナ","url":"https://yuchin0809.github.io/hayaoshi-stage/","description":"4人で同じクイズ会場に座って戦う、一人称視点のリアル早押しクイズ。ランクマッチ・友達とのルーム戦・ひとりで練習。かんたんな問題から激ムズまで約2800問。無料・登録なしでブラウザですぐ遊べます。","genre":"クイズ","inLanguage":"ja","playMode":["SinglePlayer","MultiPlayer"],"applicationCategory":"Game","operatingSystem":"Web","image":"https://yuchin0809.github.io/hayaoshi-stage/icons/icon-1024.png","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}</script>
 <style>
   html,body{margin:0;height:100%;background:#05060a;overflow:hidden;
     font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;color:#fff;
@@ -120,10 +135,12 @@
 </script>
 </head>
 <body>
+<noscript><h1>早押しクイズ - クイズアリーナ</h1><p>4人で戦う一人称視点のリアル早押しクイズです。遊ぶには JavaScript をオンにしてください。</p></noscript>
 <div id="start">
-  <h1>早押しステージ</h1>
+  <img src="icons/icon-192.png" width="88" height="88" alt="" style="border-radius:20px;box-shadow:0 6px 30px rgba(255,60,60,.35);margin-bottom:6px">
+  <h1>クイズアリーナ</h1>
   <p>あなたは早押しクイズ大会の出場者です</p>
-  <p style="font-size:13px">ソロ練習（CPUと対戦）</p>
+  <p style="font-size:13px">ランクマッチ・ルーム戦・ひとりで練習</p>
   <div class="tap">タップして入場</div>
   <div class="load" id="load">会場を準備中…</div>
 </div>
@@ -132,7 +149,7 @@
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
 <div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
 <div class="panel" id="home"><div class="card">
-  <h2>早押しステージ</h2>
+  <h2>クイズアリーナ</h2>
   <div class="me">
     <div class="badge" id="hBadge"></div>
     <div class="meinfo"><input id="hName" maxlength="8" placeholder="なまえ" autocomplete="off">
@@ -1061,7 +1078,7 @@ function drawVision() {
   g.fillStyle = grd; g.fillRect(0, 0, w, h);
   g.strokeStyle = 'rgba(80,140,255,.15)'; g.lineWidth = 1; for (let x = 0; x < w; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
-  g.font = `900 92px ${FONT}`; g.fillText('早押しステージ', w / 2, 120);
+  g.font = `900 92px ${FONT}`; g.fillText('クイズアリーナ', w / 2, 120);
   g.font = `bold 40px ${FONT}`; g.fillStyle = '#7fd6ff';
   g.fillText(G.phase === 'result' ? '結果発表' : G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' ? 'まもなく開始' : `第${G.qi + 1}問`, w / 2, 210);
   const bw = 270;

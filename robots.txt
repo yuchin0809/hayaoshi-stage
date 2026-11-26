@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://yuchin0809.github.io/hayaoshi-stage/sitemap.xml
