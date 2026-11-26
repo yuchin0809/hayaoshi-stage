@@ -72,12 +72,14 @@ const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) ||
 const FONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic","WenQuanYi Zen Hei",sans-serif';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(devicePixelRatio, 2);
+// #lq がついていたら軽い画質（スマホで描けなかったときに自動でつく）
+const LQ = location.hash.includes('lq');
+let pixelRatio = Math.min(devicePixelRatio, LQ ? 1 : isMobile ? 1.5 : 2);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !LQ;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 
@@ -92,12 +94,21 @@ const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.03, 8
 camera.rotation.order = 'YXZ';
 
 // ギザギザを消すため、4倍のマルチサンプルで描く
-const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { samples: 4, type: THREE.HalfFloatType }));
+const glc = renderer.getContext();
+const canHalf = renderer.capabilities.isWebGL2 && !!(glc.getExtension('EXT_color_buffer_half_float') || glc.getExtension('EXT_color_buffer_float'));
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio,
+  { samples: canHalf ? (isMobile ? 2 : 4) : 0, type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType }));
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.9);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
-let useBloom = true;
+let useBloom = !LQ;
+// 端末の描画が止まった（メモリ不足など）ときは、軽い画質で開き直す
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); goLQ(); });
+function goLQ() {
+  if (LQ) { document.getElementById('load').textContent = 'この端末では描けませんでした。ほかのアプリを閉じて開き直してください'; return; }
+  location.hash = 'lq'; location.reload();
+}
 
 /* ============ 小道具 ============ */
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
@@ -511,10 +522,19 @@ class Rig {
   }
   look(yaw, pitch) { const { U, R } = this.frame(); this.rotAxis('Head', U, yaw); this.rotAxis('Head', R, -pitch); }
 }
+// スマホではメモリを使いすぎないよう、人の絵を小さくする
+function shrinkTex(t, max) {
+  if (!t || !t.image || t.userData.shrunk || (t.image.width || 0) <= max) return;
+  const c = document.createElement('canvas'); c.width = c.height = max;
+  c.getContext('2d').drawImage(t.image, 0, 0, max, max);
+  if (t.image.close) t.image.close();
+  t.image = c; t.userData.shrunk = true; t.needsUpdate = true;
+}
 function setupAvatar(gltf, parent) {
   const root = new THREE.Group(); root.add(gltf.scene); parent.add(root);
   gltf.scene.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.envMapIntensity = .45; if (m.alphaTest > 0) m.side = THREE.DoubleSide; }); } });
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.envMapIntensity = .45; if (m.alphaTest > 0) m.side = THREE.DoubleSide;
+      if (isMobile || LQ) shrinkTex(m.map, LQ ? 256 : 512); }); } });
   root.updateMatrixWorld(true);
   const rig = new Rig(root);
   root.rotation.y = Math.PI - Math.atan2(rig.F0.x, rig.F0.z); root.updateMatrixWorld(true);
@@ -956,10 +976,29 @@ function frame() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
   update(dt, t);
   if (useBloom) composer.render(); else renderer.render(scene, camera);
+  if (ready) blackCheck(t);
   // 重いときは自動で画質を下げる
   if (!fpsChecked && t > 2) { fpsAcc += dt; fpsN++; if (fpsN >= 120) { const fps = fpsN / fpsAcc; fpsChecked = true;
     if (fps < 40) { pixelRatio = Math.max(1, pixelRatio * .75); renderer.setPixelRatio(pixelRatio); composer.setPixelRatio(pixelRatio); if (fps < 28) useBloom = false; } } }
   requestAnimationFrame(frame);
+}
+// 画面が真っ黒のままなら、描き方を軽くする
+let bcNext = 0, bcDark = 0, bcDone = 0; const bcPix = new Uint8Array(4);
+function blackCheck(t) {
+  if (bcDone >= 6 || t < bcNext) return;
+  if (!bcNext) { bcNext = t + .8; return; }
+  bcNext = t + .5;
+  renderer.setRenderTarget(null);
+  const W = glc.drawingBufferWidth, H = glc.drawingBufferHeight; let mx = 0;
+  for (const [x, y] of [[.3, .12], [.5, .2], [.7, .12], [.5, .5], [.2, .4], [.8, .4]]) {
+    glc.readPixels(Math.floor(W * x), Math.floor(H * y), 1, 1, glc.RGBA, glc.UNSIGNED_BYTE, bcPix);
+    mx = Math.max(mx, bcPix[0] + bcPix[1] + bcPix[2]);
+  }
+  if (mx > 24) { bcDone++; bcDark = 0; return; }
+  if (++bcDark < 3) return;
+  bcDark = 0; bcDone = 0;
+  if (useBloom) { useBloom = false; console.warn('黒い画面 → ぼかし効果なしで描く'); }
+  else goLQ();
 }
 function onResize() {
   camera.aspect = innerWidth / innerHeight;
