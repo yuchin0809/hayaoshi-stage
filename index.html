@@ -1038,8 +1038,9 @@ function drawMonitor(t) {
       g.font = `bold 40px ${FONT}`; g.fillStyle = '#fff';
       g.fillText(mine ? '解答権あり！' : `${NAMES[G.buzzer]} が解答中`, 30, by + 40);
       const got = mine ? Q.y.slice(0, G.ansPos) : G.cpuAns;
-      for (let k = 0; k < Q.y.length; k++) { const x = 30 + k * 76; g.strokeStyle = '#fff'; g.lineWidth = 3; g.strokeRect(x, by + 72, 64, 64);
-        if (got[k]) { g.font = `bold 46px ${FONT}`; g.textAlign = 'center'; g.fillText(got[k], x + 32, by + 106); g.textAlign = 'left'; } }
+      const bs = Math.min(76, (w - 60) / Q.y.length), bx = bs * .84; // 長い答えは枠を小さく
+      for (let k = 0; k < Q.y.length; k++) { const x = 30 + k * bs; g.strokeStyle = '#fff'; g.lineWidth = 3; g.strokeRect(x, by + 72 + (64 - bx) / 2, bx, bx);
+        if (got[k]) { g.font = `bold ${Math.round(bx * .72)}px ${FONT}`; g.textAlign = 'center'; g.fillText(got[k], x + bx / 2, by + 106); g.textAlign = 'left'; } }
     } else if (G.phase === 'judge' || G.phase === 'reveal') {
       const ok = G.judge ? G.judge.ok : null;
       g.fillStyle = ok === true ? 'rgba(255,60,60,.85)' : ok === false ? 'rgba(40,90,255,.85)' : 'rgba(255,255,255,.12)'; g.fillRect(0, by, w, 150);
