@@ -64,6 +64,35 @@
   .rank{font-size:clamp(40px,9vw,64px);font-weight:900;color:#ffcc33;line-height:1.1}
   .newbest{color:#ff7a7a;font-weight:700;font-size:13px;min-height:1em}
   .btns{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .me{display:flex;align-items:center;gap:12px;margin:10px 0 4px;text-align:left}
+  .badge{flex:none;width:78px;height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:900;font-size:13px;line-height:1.1;border:3px solid currentColor;background:rgba(0,0,0,.35);box-shadow:0 0 18px -4px currentColor}
+  .badge b{font-size:22px}
+  .meinfo{flex:1;min-width:0}
+  .meinfo input,.join input{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:17px;font-weight:700;user-select:text;-webkit-user-select:text}
+  .rpbar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);margin:8px 0 4px;overflow:hidden}
+  .rpbar i{display:block;height:100%;background:linear-gradient(90deg,#ffcc33,#ff7a3a)}
+  .rptxt{font-size:12px;opacity:.7}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .mode{padding:12px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#fff;font:inherit;text-align:center;touch-action:manipulation}
+  .mode b{display:block;font-size:17px}
+  .mode small{display:block;font-size:11px;opacity:.6;margin-top:3px}
+  .mode[data-go=rank]{background:linear-gradient(rgba(255,75,75,.35),rgba(200,20,28,.35));border-color:#ff8080}
+  .back{display:block;margin:14px auto 0;background:none;border:0;color:#9fb3d9;font:inherit;font-size:14px}
+  .searching{margin-top:10px;font-size:15px;animation:pulse 1.4s ease-in-out infinite}
+  .mtime{font-size:28px;font-weight:800;margin:4px 0}
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .slot{border-radius:12px;padding:8px 2px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.2);min-height:58px;font-size:12px}
+  .slot.on{border-style:solid;background:rgba(255,255,255,.1)}
+  .slot b{display:block;font-size:14px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .code{font-size:44px;font-weight:900;letter-spacing:.25em;color:#ffcc33}
+  .join{display:flex;gap:8px;margin-top:12px;justify-content:center}
+  .join input{max-width:180px;text-align:center;letter-spacing:.2em}
+  .join .btn{flex:none;width:90px}
+  .err{color:#ff8a8a;font-size:12px;min-height:1.2em;margin-top:6px}
+  .rpchange{font-size:15px;font-weight:700;margin-top:4px;min-height:1.2em}
+  .hist{font-size:12px;opacity:.75;margin-top:10px;text-align:left;line-height:1.7}
   #rotate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
     background:#05060a;z-index:20;font-size:18px;text-align:center;padding:16px}
   @media (orientation:portrait) and (max-width:900px){#rotate{display:flex}}
@@ -87,27 +116,79 @@
 <div id="hint">画面をタップすると早押し</div>
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
 <div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
+<div class="panel" id="home"><div class="card">
+  <h2>早押しステージ</h2>
+  <div class="me">
+    <div class="badge" id="hBadge"></div>
+    <div class="meinfo"><input id="hName" maxlength="8" placeholder="なまえ" autocomplete="off">
+      <div class="rpbar"><i id="hBar"></i></div><div class="rptxt" id="hRp"></div></div>
+  </div>
+  <div class="modes">
+    <button class="mode" data-go="rank"><b>ランクマッチ</b><small>近いランクの人と4人で対戦</small></button>
+    <button class="mode" data-go="room"><b>ルーム戦</b><small>部屋を作って友達と対戦</small></button>
+    <button class="mode" data-go="solo"><b>ひとりで練習</b><small>CPUの3人と練習</small></button>
+    <button class="mode" data-go="stats"><b>成績</b><small>正解率・押す早さ・ランクの記録</small></button>
+  </div>
+  <div class="best" id="netTxt"></div>
+</div></div>
 <div class="panel" id="menu"><div class="card">
-  <h2>ソロ練習</h2><p class="sub">CPUの3人と早押し勝負</p>
+  <h2>ひとりで練習</h2><p class="sub">CPUの3人と早押し勝負（ランクは変わりません）</p>
   <div class="row"><div class="lab">相手の強さ</div><div class="seg" id="optLv">
-    <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>すごく速い</small></button></div></div>
+    <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>かなり速い</small></button></div></div>
+  <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optQ">
+    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button></div></div>
   <div class="row"><div class="lab">問題の数</div><div class="seg" id="optN">
     <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
   <button class="btn go" id="goBtn">スタート</button>
   <div class="best" id="bestTxt"></div>
+  <button class="back" data-go="home">← もどる</button>
+</div></div>
+<div class="panel" id="match"><div class="card">
+  <h2>ランクマッチ</h2><p class="sub" id="mSub"></p>
+  <div class="searching" id="mState">対戦相手を探しています…</div>
+  <div class="mtime" id="mTime">0秒</div>
+  <div class="slots" id="mSlots"></div>
+  <button class="btn sec" id="mCancel" style="margin:14px auto 0;display:block">やめる</button>
+</div></div>
+<div class="panel" id="room"><div class="card">
+  <h2>ルーム戦</h2>
+  <div id="roomEntry">
+    <p class="sub">部屋を作って番号を友達に教えるか、友達の部屋の番号を入れてね</p>
+    <button class="btn go" id="rCreate">部屋を作る</button>
+    <div class="join"><input id="rCode" inputmode="numeric" maxlength="4" placeholder="4けたの番号"><button class="btn" id="rJoin">入る</button></div>
+    <div class="err" id="rErr"></div>
+  </div>
+  <div id="roomLobby" style="display:none">
+    <p class="sub">部屋の番号</p><div class="code" id="rCodeShow"></div>
+    <div class="slots" id="rSlots"></div>
+    <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
+      <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
+    <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
+    <div class="best">問題は、部屋でいちばん高いランクと低いランクの間から出ます</div>
+  </div>
+  <button class="back" id="rBack">← もどる</button>
+</div></div>
+<div class="panel" id="stats"><div class="card">
+  <h2>成績</h2>
+  <div class="me" style="justify-content:center"><div class="badge" id="sBadge"></div><div class="rptxt" id="sRp" style="text-align:left"></div></div>
+  <div class="stats" id="sGrid"></div>
+  <div class="hist" id="sHist"></div>
+  <button class="back" data-go="home">← もどる</button>
 </div></div>
 <div class="panel" id="result"><div class="card">
-  <h2>結果</h2><div class="rank" id="rRank"></div><div class="newbest" id="rNew"></div>
+  <h2 id="rTitle">結果</h2><div class="rank" id="rRank"></div><div class="newbest" id="rNew"></div>
+  <div class="rpchange" id="rRp"></div>
   <div class="stats">
     <div><b id="rScore"></b><span>得点</span></div><div><b id="rOk"></b><span>正解 ／ 誤答</span></div>
     <div><b id="rFast"></b><span>押した位置（平均）</span></div><div><b id="rFirst"></b><span>いちばん早い正解</span></div>
   </div>
-  <div class="btns"><button class="btn go" id="againBtn" style="margin:0">もう一度</button><button class="btn sec" id="menuBtn">設定を変える</button></div>
+  <div class="btns"><button class="btn go" id="againBtn" style="margin:0">もう一度</button><button class="btn sec" id="menuBtn">ホームへ</button></div>
 </div></div>
 <div id="rotate"><div style="font-size:42px">↻</div><p>横向きにして遊んでね</p></div>
 
 <script type="module">
 import * as THREE from 'three';
+import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -729,96 +810,42 @@ const SFX = {
     [523.25, 659.25, 784, 1046.5].forEach(f => tone(f, t + .4, 1.1, 'sine', .07, .4)); },
 };
 
-/* ============ 問題（オリジナル。lv 1=やさしい 2=ふつう） ============ */
-const BANK = [
-  {"lv": 1, "q": "日本で一番高い山は富士山ですが、2番目に高い山は何でしょう？", "a": "北岳", "y": "きただけ"},
-  {"lv": 1, "q": "1年でいちばん昼が長い日を夏至といいますが、いちばん昼が短い日を何というでしょう？", "a": "冬至", "y": "とうじ"},
-  {"lv": 1, "q": "日本の都道府県で、面積がいちばん小さいのは香川県ですが、いちばん大きいのはどこでしょう？", "a": "北海道", "y": "ほっかいどう"},
-  {"lv": 1, "q": "太陽系の惑星で、太陽にいちばん近いのは水星ですが、いちばん遠いのは何でしょう？", "a": "海王星", "y": "かいおうせい"},
-  {"lv": 1, "q": "水がこおる温度は0度ですが、1気圧で水がふっとうする温度は何度でしょう？", "a": "100度", "y": "100"},
-  {"lv": 1, "q": "日本でいちばん長い川は何でしょう？", "a": "信濃川", "y": "しなのがわ"},
-  {"lv": 1, "q": "日本でいちばん面積が大きい湖は何でしょう？", "a": "琵琶湖", "y": "びわこ"},
-  {"lv": 1, "q": "太陽系の惑星で、いちばん大きいのは何でしょう？", "a": "木星", "y": "もくせい"},
-  {"lv": 1, "q": "「坊っちゃん」や「吾輩は猫である」を書いた作家は誰でしょう？", "a": "夏目漱石", "y": "なつめそうせき"},
-  {"lv": 1, "q": "ふつうの年は365日ですが、うるう年は1年が何日でしょう？", "a": "366日", "y": "366"},
-  {"lv": 1, "q": "光の三原色は、赤と緑と何色でしょう？", "a": "青", "y": "あお"},
-  {"lv": 1, "q": "元素記号「H」で表される、いちばん軽い元素は何でしょう？", "a": "水素", "y": "すいそ"},
-  {"lv": 2, "q": "元素記号「O」は酸素ですが、元素記号「Fe」で表される元素は何でしょう？", "a": "鉄", "y": "てつ"},
-  {"lv": 2, "q": "日本の首都は東京ですが、オーストラリアの首都はどこでしょう？", "a": "キャンベラ", "y": "きゃんべら"},
-  {"lv": 1, "q": "1から10までの整数をすべて足すと、いくつになるでしょう？", "a": "55", "y": "55"},
-  {"lv": 1, "q": "三角形の3つの角の大きさを足すと、何度になるでしょう？", "a": "180度", "y": "180"},
-  {"lv": 1, "q": "サッカーで、1チームがフィールドに出せる選手は何人でしょう？", "a": "11人", "y": "11"},
-  {"lv": 1, "q": "野球で、守備につく1チームの選手は何人でしょう？", "a": "9人", "y": "9"},
-  {"lv": 2, "q": "645年の大化の改新のときに定められた、日本で最初の元号は何でしょう？", "a": "大化", "y": "たいか"},
-  {"lv": 2, "q": "1192年に征夷大将軍となり、鎌倉幕府を開いた人物は誰でしょう？", "a": "源頼朝", "y": "みなもとのよりとも"},
-  {"lv": 2, "q": "江戸幕府を開いたのは徳川家康ですが、江戸幕府の最後の将軍は誰でしょう？", "a": "徳川慶喜", "y": "とくがわよしのぶ"},
-  {"lv": 2, "q": "「春はあけぼの」という書き出しで始まる、清少納言の随筆は何でしょう？", "a": "枕草子", "y": "まくらのそうし"},
-  {"lv": 1, "q": "平安時代に「源氏物語」を書いた人物は誰でしょう？", "a": "紫式部", "y": "むらさきしきぶ"},
-  {"lv": 2, "q": "日本の国会は2つの議院でできていますが、衆議院と、もう1つは何でしょう？", "a": "参議院", "y": "さんぎいん"},
-  {"lv": 1, "q": "1時間は60分ですが、1時間は何秒でしょう？", "a": "3600秒", "y": "3600"},
-  {"lv": 2, "q": "月の満ち欠けで、地球から月がほとんど見えない状態を何というでしょう？", "a": "新月", "y": "しんげつ"},
-  {"lv": 2, "q": "東京駅と新大阪駅を結ぶ新幹線は何でしょう？", "a": "東海道新幹線", "y": "とうかいどうしんかんせん"},
-  {"lv": 1, "q": "世界でいちばん面積が大きい国はどこでしょう？", "a": "ロシア", "y": "ろしあ"},
-  {"lv": 1, "q": "地球でいちばん広い海は何でしょう？", "a": "太平洋", "y": "たいへいよう"},
-  {"lv": 2, "q": "南アメリカ大陸で、面積がいちばん大きい国はどこでしょう？", "a": "ブラジル", "y": "ぶらじる"},
-  {"lv": 1, "q": "ギザのピラミッドがあり、首都をカイロとする国はどこでしょう？", "a": "エジプト", "y": "えじぷと"},
-  {"lv": 1, "q": "漢字の「森」には、「木」という字がいくつ入っているでしょう？", "a": "3つ", "y": "3"},
-  {"lv": 1, "q": "植物が光を使って、水と二酸化炭素から養分をつくるはたらきを何というでしょう？", "a": "光合成", "y": "こうごうせい"},
-  {"lv": 2, "q": "心臓から送り出される血液が流れる血管を、何というでしょう？", "a": "動脈", "y": "どうみゃく"},
-  {"lv": 2, "q": "ニュートンが発見した、すべての物体どうしが引き合う力を何というでしょう？", "a": "万有引力", "y": "ばんゆういんりょく"},
-  {"lv": 2, "q": "「ロミオとジュリエット」や「ハムレット」を書いたイギリスの劇作家は誰でしょう？", "a": "シェイクスピア", "y": "しぇいくすぴあ"},
-  {"lv": 1, "q": "「モナ・リザ」や「最後の晩餐」を描いた、イタリアの芸術家は誰でしょう？", "a": "レオナルド・ダ・ヴィンチ", "y": "だびんち"},
-  {"lv": 2, "q": "「ひまわり」の絵で知られる、オランダ生まれの画家は誰でしょう？", "a": "ゴッホ", "y": "ごっほ"},
-  {"lv": 2, "q": "「運命」や「第九」で知られる、ドイツの作曲家は誰でしょう？", "a": "ベートーヴェン", "y": "べーとーべん"},
-  {"lv": 1, "q": "日本の硬貨で、まん中に穴があいているのは5円玉と何円玉でしょう？", "a": "50円玉", "y": "50"},
-  {"lv": 2, "q": "2024年から発行されている新しい1万円札にえがかれている人物は誰でしょう？", "a": "渋沢栄一", "y": "しぶさわえいいち"},
-  {"lv": 1, "q": "47都道府県のうち、「府」がつくのは大阪府ともう1つはどこでしょう？", "a": "京都府", "y": "きょうと"},
-  {"lv": 1, "q": "日本でいちばん人口が多い都道府県はどこでしょう？", "a": "東京都", "y": "とうきょう"},
-  {"lv": 1, "q": "沖縄県の県庁所在地はどこでしょう？", "a": "那覇市", "y": "なは"},
-  {"lv": 2, "q": "「天は人の上に人を造らず」で知られる「学問のすゝめ」を書いた人物は誰でしょう？", "a": "福沢諭吉", "y": "ふくざわゆきち"},
-  {"lv": 2, "q": "中国の歴史書「魏志倭人伝」に登場する、卑弥呼が治めていた国は何でしょう？", "a": "邪馬台国", "y": "やまたいこく"},
-  {"lv": 1, "q": "「奈良の大仏」がある寺は何でしょう？", "a": "東大寺", "y": "とうだいじ"},
-  {"lv": 2, "q": "日本三景とは、松島、天橋立と、もう1つはどこでしょう？", "a": "宮島", "y": "みやじま"},
-  {"lv": 1, "q": "チェスで、将棋の王将にあたる駒は何でしょう？", "a": "キング", "y": "きんぐ"},
-  {"lv": 1, "q": "鉛筆などを数えるときに使う「1ダース」は何本でしょう？", "a": "12本", "y": "12"},
-  {"lv": 1, "q": "英語のアルファベットは全部で何文字でしょう？", "a": "26文字", "y": "26"},
-  {"lv": 1, "q": "正方形の1つの角の大きさは何度でしょう？", "a": "90度", "y": "90"},
-  {"lv": 2, "q": "円周率を表すときに使われるギリシャ文字は何でしょう？", "a": "π（パイ）", "y": "ぱい"},
-  {"lv": 1, "q": "1キロメートルは何メートルでしょう？", "a": "1000メートル", "y": "1000"},
-  {"lv": 1, "q": "タコの足は8本ですが、イカの足は一般に何本といわれるでしょう？", "a": "10本", "y": "10"},
-  {"lv": 1, "q": "カブトムシやチョウなどの昆虫の足は何本でしょう？", "a": "6本", "y": "6"},
-  {"lv": 1, "q": "昆虫の足は6本ですが、クモの足は何本でしょう？", "a": "8本", "y": "8"},
-  {"lv": 2, "q": "地球上でいちばん大きい動物といわれる、クジラのなかまは何でしょう？", "a": "シロナガスクジラ", "y": "しろながすくじら"},
-  {"lv": 1, "q": "陸上でいちばん速く走る動物といわれるのは何でしょう？", "a": "チーター", "y": "ちーたー"},
-  {"lv": 1, "q": "七夕で、天の川をはさんで織姫と会う星は何でしょう？", "a": "彦星", "y": "ひこぼし"},
-  {"lv": 1, "q": "昔話「桃太郎」で、桃太郎が鬼退治に向かった島は何でしょう？", "a": "鬼ヶ島", "y": "おにがしま"},
-  {"lv": 1, "q": "昔話「浦島太郎」で、浦島太郎が助けた生き物は何でしょう？", "a": "カメ", "y": "かめ"},
-  {"lv": 1, "q": "高さ634メートルで、日本でいちばん高いタワーは何でしょう？", "a": "東京スカイツリー", "y": "すかいつりー"},
-  {"lv": 2, "q": "東京スカイツリーの高さは634メートルですが、東京タワーの高さは何メートルでしょう？", "a": "333メートル", "y": "333"},
-  {"lv": 2, "q": "日本一高い山・富士山の高さは何メートルでしょう？", "a": "3776メートル", "y": "3776"},
-  {"lv": 2, "q": "日本で、国政選挙に投票できる年齢は何歳以上でしょう？", "a": "18歳", "y": "18"},
-  {"lv": 2, "q": "国会議事堂や首相官邸がある、東京都千代田区の地名は何でしょう？", "a": "永田町", "y": "ながたちょう"},
-  {"lv": 1, "q": "エッフェル塔があるパリを首都とする国はどこでしょう？", "a": "フランス", "y": "ふらんす"},
-  {"lv": 1, "q": "コロッセオで知られる、イタリアの首都はどこでしょう？", "a": "ローマ", "y": "ろーま"},
-  {"lv": 2, "q": "富士山がある2つの県は、山梨県と何県でしょう？", "a": "静岡県", "y": "しずおか"},
-  {"lv": 1, "q": "日本列島をつくる大きな4つの島のうち、いちばん面積が小さいのは何でしょう？", "a": "四国", "y": "しこく"},
-  {"lv": 2, "q": "1543年、鉄砲が日本に伝わったとされる島はどこでしょう？", "a": "種子島", "y": "たねがしま"},
-  {"lv": 2, "q": "1868年に、それまでの「慶応」から改められた元号は何でしょう？", "a": "明治", "y": "めいじ"},
-  {"lv": 1, "q": "鳴く虫の「スズムシ」や「コオロギ」が鳴くのは、オスとメスのどちらでしょう？", "a": "オス", "y": "おす"},
-  {"lv": 2, "q": "将棋で、自分の駒が相手の陣地に入ると強い駒に変わることを何というでしょう？", "a": "成る", "y": "なる"},
-  {"lv": 2, "q": "1年のうちで、昼と夜の長さがほぼ同じになる春の日を何というでしょう？", "a": "春分の日", "y": "しゅんぶん"},
-  {"lv": 1, "q": "水を冷やしてかためると何になるでしょう？", "a": "氷", "y": "こおり"},
-  {"lv": 2, "q": "ヒトの血液の中で、酸素を運ぶはたらきをする成分は何でしょう？", "a": "赤血球", "y": "せっけっきゅう"},
+/* ============ 問題（オリジナル。レベル1〜5、questions/lv○.json） ============ */
+// レベル: 1=とても簡単 2=簡単 3=ふつう 4=難しい 5=とても難しい
+const QB = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+async function loadQuestions() {
+  await Promise.all([1, 2, 3, 4, 5].map(async L => {
+    try { const r = await fetch(`questions/lv${L}.json`); const a = await r.json(); QB[L] = a.map((x, i) => ({ q: x[0], a: x[1], y: x[2], lv: L, id: `${L}:${i}` })); } catch (e) { console.warn('問題の読み込み失敗', L, e); }
+  }));
+}
+// ランク帯ごとの「問題レベルの混ぜ方」（%）。上のランクほど難しい問題が多い
+const LV_MIX = [
+  [70, 30, 0, 0, 0],   // ビギナー
+  [25, 55, 20, 0, 0],  // ブロンズ
+  [0, 25, 55, 20, 0],  // シルバー
+  [0, 0, 25, 55, 20],  // ゴールド
+  [0, 0, 0, 30, 70],   // マスター
 ];
+// 部屋の中でいちばん低いランク帯〜高いランク帯の混ぜ方を平均して使う
+function mixForTiers(lo, hi) {
+  const w = [0, 0, 0, 0, 0];
+  for (let t = lo; t <= hi; t++) LV_MIX[t].forEach((v, k) => w[k] += v / (hi - lo + 1));
+  return w;
+}
 let QUESTIONS = [];
 // 最近出た問題はなるべく出さない
-function pickQuestions(n) {
-  let recent = []; try { recent = JSON.parse(localStorage.getItem('hs_recent') || '[]'); } catch (e) {}
-  const ids = BANK.map((_, i) => i).sort(() => Math.random() - .5);
-  ids.sort((x, y) => (recent.includes(x) ? 1 : 0) - (recent.includes(y) ? 1 : 0));
-  const out = ids.slice(0, n);
-  try { localStorage.setItem('hs_recent', JSON.stringify([...out, ...recent].slice(0, Math.floor(BANK.length * .7)))); } catch (e) {}
-  return out.map(i => BANK[i]);
+function pickQuestions(n, weights) {
+  let recent = []; try { recent = JSON.parse(localStorage.getItem('hs_recent2') || '[]'); } catch (e) {}
+  const rs = new Set(recent), used = new Set(), out = [];
+  for (let k = 0; k < n; k++) {
+    let w = weights.map((v, i) => QB[i + 1].length ? v : 0); if (w.every(v => !v)) w = [1, 1, 1, 1, 1].map((v, i) => QB[i + 1].length ? 1 : 0);
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), L = 1; for (let i = 0; i < 5; i++) { r -= w[i]; if (r <= 0) { L = i + 1; break; } }
+    const pool = QB[L].filter(q => !used.has(q.id)); if (!pool.length) { k--; weights = weights.map((v, i) => i === L - 1 ? 0 : v); if (weights.every(v => !v)) break; continue; }
+    const fresh = pool.filter(q => !rs.has(q.id)); const src = fresh.length ? fresh : pool;
+    const q = src[Math.floor(Math.random() * src.length)]; used.add(q.id); out.push(q);
+  }
+  try { localStorage.setItem('hs_recent2', JSON.stringify([...out.map(q => q.id), ...recent].slice(0, 3000))); } catch (e) {}
+  return out;
 }
 const ROWS = ['あいうえお', 'かきくけこ', 'さしすせそ', 'たちつてと', 'なにぬねの', 'はひふへほ', 'まみむめも', 'や ゆ よ', 'らりるれろ', 'わ を ん',
   'がぎぐげご', 'ざじずぜぞ', 'だぢづでど', 'ばびぶべぼ', 'ぱぴぷぺぽ'];
@@ -840,18 +867,19 @@ function choicesFor(c) {
 }
 
 /* ============ ゲームの進行 ============ */
-const G = { phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
+const G = { players: [], mode: 'solo', phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
   ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, lv: 1, n: 10, st: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
 const CHARS_PER_SEC = 8;
 const ui = { answer: document.getElementById('answer'), choices: document.getElementById('choices'), tbar: document.querySelector('#tbar i'),
   hint: document.getElementById('hint'), qno: document.getElementById('qno'), score: document.getElementById('score') };
 
-// CPUの強さ: 押す確率・押す位置（問題文の何割で押すか）・正解率
-const CPU_LV = [
-  { prob: .45, from: .72, span: .3, skill: [.6, .55, .65], delay: [.35, .7] },
-  { prob: .62, from: .5, span: .45, skill: [.75, .7, .8], delay: [.15, .5] },
-  { prob: .85, from: .32, span: .45, skill: [.88, .85, .92], delay: [.08, .3] },
-];
+// CPUの強さ（0〜1）から、押す確率・押す位置・正解率などを決める
+function botParams(st) {
+  const x = clamp(st, 0, 1);
+  return { prob: .35 + .55 * x, from: .8 - .5 * x, span: .3 + .15 * x, skill: .55 + .37 * x, delay: [.4 - .32 * x, .75 - .45 * x] };
+}
+const SOLO_STRENGTH = [.16, .5, .72];          // やさしい・ふつう・つよい
+function rankStrength(rp) { return .1 + rankIdx(rp) / MAX_IDX * .65; }
 // 「第○問」の大きな文字（毎フレーム動かす）
 let bannerT = 9; const bannerEl = document.getElementById('banner');
 function animBanner(dt) {
@@ -873,9 +901,12 @@ function introQuestion() {
 function startQuestion() {
   G.phase = 'reading'; G.shown = 0; G.acc = 0; G.buzzer = -1; G.locked = new Set(); G.judge = null; G.idleAfterEnd = 0;
   const Q = QUESTIONS[G.qi];
-  const L = CPU_LV[G.lv], rnd = Math.random, ease = Q.lv === 1 ? -.05 : .05;
-  G.cpuPlan = [0, 2, 3].map((i, k) => rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + ease + rnd() * L.span, .25, 1)),
-    delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill[k] - (Q.lv === 2 ? .05 : 0) } : null).filter(Boolean);
+  const rnd = Math.random;
+  G.cpuPlan = [0, 2, 3].map(i => {
+    // 問題がむずかしいほど、CPUも押すのが遅く・まちがえやすくなる
+    const L = botParams(G.players[i].str - (Q.lv - 1 - G.players[i].tier) * .07);
+    return rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + rnd() * L.span, .25, 1)), delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
+  }).filter(Boolean);
   G.ANS_LIMIT = Math.max(10, 3 + Q.y.length * 1.3);
   ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = .7;
   crowd.focus.set(0, 1.4, -9.6); drawVision();
@@ -927,7 +958,7 @@ function afterJudge() {
 function reveal() { G.phase = 'reveal'; G.wait = 3.2; G.shown = QUESTIONS[G.qi].q.length; }
 function nextQuestion() {
   G.qi++;
-  if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; setTimeout(showResult, 2200); return; }
+  if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; setTimeout(finishMatch, 2200); return; }
   introQuestion();
 }
 function tickGame(dt) {
@@ -945,7 +976,7 @@ function tickGame(dt) {
     G.ansT += dt;
     if (G.buzzer === ME) { ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; if (G.ansT > G.ANS_LIMIT) judge(false); }
     else { // CPUの解答
-      const p = G.cpuPlan.find(x => x.i === G.buzzer); const n = Math.floor(Math.max(0, G.ansT - .8) / .55);
+      const p = G.cpuPlan.find(x => x.i === G.buzzer) || { skill: botParams(G.players[G.buzzer].str).skill }; const n = Math.floor(Math.max(0, G.ansT - .8) / .55);
       if (n > G.cpuAns.length && G.cpuAns.length < Q.y.length) {
         if (G.cpuAns.length === 0) G.cpuOk = R() < (p ? p.skill : .7);
         const wrongAt = G.cpuOk ? 99 : Math.floor(R() * Q.y.length);
@@ -1039,7 +1070,7 @@ function drawVision() {
     if (G.locked.has(i) && G.phase !== 'result') { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x - bw / 2, y - 130, bw, 260); g.fillStyle = '#8fb0ff'; g.font = `bold 40px ${FONT}`; g.fillText('お休み', x, y); }
   }
   visionTex.needsUpdate = true;
-  ui.score.textContent = `あなた ${G.scores[ME]}点`;
+  ui.score.textContent = `${NAMES[ME]} ${G.scores[ME]}点`;
 }
 
 /* ============ 入力 ============ */
@@ -1055,49 +1086,193 @@ document.getElementById('start').addEventListener('pointerdown', () => {
   try { initAudio(); } catch (e) {}
   document.getElementById('start').style.display = 'none';
   SFX.applause(1, 3.5); crowd.clap = 1;
-  openMenu();
+  openHome();
 });
-/* ============ ソロ練習のメニューと結果 ============ */
+/* ============ ホーム・ひとりで練習・ランクマッチ・ルーム戦・成績 ============ */
 const LV_NAMES = ['やさしい', 'ふつう', 'つよい'];
 function load(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-G.lv = load('hs_lv', 1); G.n = load('hs_n', 10);
-function segSetup(id, key, prop) {
-  const el = document.getElementById(id);
+const $ = id => document.getElementById(id);
+const net = makeNet();
+// 自分のデータ（サーバーができたらサーバーにも保存する）
+const ME_DATA = load('hs_me', { name: 'あなた', rp: 0, peak: 0 });
+const STATS = load('hs_stats', { games: { solo: 0, rank: 0, room: 0 }, wins: 0, ok: 0, ng: 0, posSum: 0, posN: 0, hist: [] });
+function saveMe() { save('hs_me', ME_DATA); save('hs_stats', STATS); }
+G.lv = load('hs_lv', 1); G.n = load('hs_n', 10); G.qd = load('hs_qd', -1); G.rn = load('hs_rn', 10);
+
+const PANELS = ['home', 'menu', 'match', 'room', 'stats', 'result'];
+function show(id) { PANELS.forEach(p => $(p).style.display = p === id ? 'flex' : 'none'); }
+function badgeHTML(rp) { const i = rankIdx(rp), t = Math.floor(i / 3); return `<span style="font-size:12px">${TIERS[t]}</span><b>${SUBS[i % 3]}</b>`; }
+function paintBadge(el, rp) { el.innerHTML = badgeHTML(rp); el.style.color = TIER_COLORS[tierOf(rp)]; }
+function rpText(rp) {
+  const i = rankIdx(rp);
+  if (i >= MAX_IDX) return `${rankName(rp)}・${rp - MAX_IDX * RP_PER} pt`;
+  return `${rankName(rp)}・あと ${RP_PER - (rp % RP_PER)} pt で ${rankName(rp + RP_PER - (rp % RP_PER))}`;
+}
+function rankColor(rp) { return TIER_COLORS[tierOf(rp)]; }
+
+// ── ホーム ──
+function openHome() {
+  G.phase = 'menu'; show('home'); ui.qno.textContent = ''; ui.hint.style.opacity = 0;
+  paintBadge($('hBadge'), ME_DATA.rp); $('hName').value = ME_DATA.name;
+  $('hBar').style.width = rankIdx(ME_DATA.rp) >= MAX_IDX ? '100%' : `${(ME_DATA.rp % RP_PER)}%`;
+  $('hRp').textContent = rpText(ME_DATA.rp);
+  $('netTxt').textContent = net.online ? 'サーバーにつながっています' : '今はサーバーにつながっていないので、対戦相手はCPUです';
+  setPlayers([{ name: 'ハルト' }, { name: ME_DATA.name }, { name: 'ミサキ' }, { name: 'ケンジ' }]);
+  drawVision();
+}
+$('hName').addEventListener('change', () => { ME_DATA.name = ($('hName').value || '').replace(/[<>&"']/g, '').trim().slice(0, 8) || 'あなた'; saveMe(); openHome(); });
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { SFX.tick(); ({ home: openHome, solo: openSolo, rank: openMatch, room: openRoom, stats: openStats })[b.dataset.go](); }));
+
+// 席の名前とランクを入れかえる
+function setPlayers(list) {
+  G.players = list.map((p, i) => {
+    const rp = p.rp ?? ME_DATA.rp;
+    return { name: p.name, rp, tier: tierOf(rp), str: p.str ?? rankStrength(rp), bot: i !== ME };
+  });
+  G.players.forEach((p, i) => {
+    if (NAMES[i] === p.name) return;
+    NAMES[i] = p.name; const old = seats[i].plate.material.map; seats[i].plate.material.map = namePlate(p.name); seats[i].plate.material.needsUpdate = true; old && old.dispose();
+  });
+  monKey = '';
+}
+
+// ── ひとりで練習 ──
+function segSetup(id, key, prop, after) {
+  const el = $(id);
   const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === G[prop]));
-  el.querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); G[prop] = +b.dataset.v; save(key, G[prop]); paint(); showBest(); SFX.tick(); }));
+  el.querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); G[prop] = +b.dataset.v; save(key, G[prop]); paint(); after && after(); SFX.tick(); }));
   paint();
 }
-segSetup('optLv', 'hs_lv', 'lv'); segSetup('optN', 'hs_n', 'n');
-function bestKey() { return `hs_best_${G.lv}_${G.n}`; }
-function showBest() { const b = load(bestKey(), null); document.getElementById('bestTxt').textContent = b ? `この設定の自己ベスト：${b.score}点（${b.rank}位）` : 'この設定はまだ記録なし'; }
-function openMenu() {
-  G.phase = 'menu'; document.getElementById('result').style.display = 'none';
-  document.getElementById('menu').style.display = 'flex'; showBest(); ui.qno.textContent = ''; drawVision();
+segSetup('optLv', 'hs_lv', 'lv', () => showBest()); segSetup('optN', 'hs_n', 'n', () => showBest()); segSetup('optQ', 'hs_qd', 'qd', () => showBest());
+segSetup('optRN', 'hs_rn', 'rn');
+function bestKey() { return `hs_best_${G.lv}_${G.n}_${G.qd}`; }
+function showBest() { const b = load(bestKey(), null); $('bestTxt').textContent = b ? `この設定の自己ベスト：${b.score}点（${b.rank}位）` : 'この設定はまだ記録なし'; }
+function openSolo() { G.phase = 'menu'; show('menu'); showBest(); }
+function startSolo() {
+  G.mode = 'solo';
+  const s = SOLO_STRENGTH[G.lv];
+  setPlayers([{ name: 'ハルト', str: s, rp: ME_DATA.rp }, { name: ME_DATA.name, rp: ME_DATA.rp }, { name: 'ミサキ', str: s - .04, rp: ME_DATA.rp }, { name: 'ケンジ', str: s + .04, rp: ME_DATA.rp }]);
+  const t = G.qd < 0 ? tierOf(ME_DATA.rp) : G.qd;
+  beginMatch(pickQuestions(G.n, LV_MIX[t]));
 }
-function startGame() {
-  document.getElementById('menu').style.display = 'none'; document.getElementById('result').style.display = 'none';
-  QUESTIONS = pickQuestions(G.n); G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
+
+// ── ランクマッチ ──
+let matchRange = [0, 0];
+function openMatch() {
+  G.phase = 'menu'; show('match');
+  const me = { name: ME_DATA.name, rp: ME_DATA.rp };
+  $('mSub').innerHTML = `あなたは <b style="color:${rankColor(me.rp)}">${rankName(me.rp)}</b>`;
+  $('mState').textContent = '対戦相手を探しています…'; $('mTime').textContent = '0秒';
+  paintSlots($('mSlots'), [me]);
+  net.findMatch(me, ({ sec, range, players }) => {
+    matchRange = range; $('mTime').textContent = `${sec}秒`;
+    const same = range[0] === range[1];
+    $('mState').textContent = same ? `${TIERS[range[0]]}の人を探しています…` : `${TIERS[range[0]]}〜${TIERS[range[1]]}までひろげて探しています…`;
+    paintSlots($('mSlots'), [me, ...players]);
+  }, (players) => {
+    $('mState').textContent = 'そろいました！'; SFX.intro();
+    setTimeout(() => startRanked(players), 700);
+  });
+}
+$('mCancel').addEventListener('click', () => { net.cancel(); openHome(); });
+function paintSlots(el, list) {
+  el.innerHTML = '';
+  for (let k = 0; k < 4; k++) {
+    const p = list[k], d = document.createElement('div'); d.className = 'slot' + (p ? ' on' : '');
+    d.innerHTML = p ? `<b>${p.name}</b><span style="color:${rankColor(p.rp)}">${rankName(p.rp)}</span>` : '<span style="opacity:.4">…</span>';
+    el.appendChild(d);
+  }
+}
+function startRanked(others) {
+  G.mode = 'rank';
+  setPlayers([others[0], { name: ME_DATA.name, rp: ME_DATA.rp }, others[1], others[2]]);
+  // 部屋でいちばん低いランク〜高いランクの範囲から出題
+  const tiers = G.players.map(p => p.tier);
+  beginMatch(pickQuestions(10, mixForTiers(Math.min(...tiers), Math.max(...tiers))));
+}
+
+// ── ルーム戦 ──
+let room = null;
+function openRoom() {
+  G.phase = 'menu'; show('room'); room = null;
+  $('roomEntry').style.display = 'block'; $('roomLobby').style.display = 'none'; $('rErr').textContent = ''; $('rCode').value = '';
+}
+$('rCreate').addEventListener('click', () => {
+  room = net.createRoom({ name: ME_DATA.name, rp: ME_DATA.rp });
+  $('roomEntry').style.display = 'none'; $('roomLobby').style.display = 'block'; $('rCodeShow').textContent = room.code; paintRoom();
+});
+$('rJoin').addEventListener('click', () => {
+  const code = $('rCode').value.trim();
+  if (!/^\d{4}$/.test(code)) { $('rErr').textContent = '4けたの数字を入れてね'; return; }
+  net.joinRoom(code).then(() => {}).catch(e => { $('rErr').textContent = e.message; });
+});
+$('rBot').addEventListener('click', () => { if (!room || room.players.length >= 3) return; net.addBot(room, ME_DATA); paintRoom(); SFX.tick(); });
+$('rStart').addEventListener('click', () => {
+  if (!room) return;
+  while (room.players.length < 3) net.addBot(room, ME_DATA); // 足りない席はCPU
+  G.mode = 'room';
+  const o = room.players;
+  setPlayers([o[0], { name: ME_DATA.name, rp: ME_DATA.rp }, o[1], o[2]]);
+  const tiers = G.players.map(p => p.tier);
+  beginMatch(pickQuestions(G.rn, mixForTiers(Math.min(...tiers), Math.max(...tiers))));
+});
+$('rBack').addEventListener('click', () => { room ? openRoom() : openHome(); });
+function paintRoom() { paintSlots($('rSlots'), [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players]); }
+
+// ── 試合の開始と終了 ──
+function beginMatch(qs) {
+  show(null); QUESTIONS = qs; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
   ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = 1.2; monKey = ''; drawVision();
 }
-function showResult() {
-  const order = [0, 1, 2, 3].sort((a, b) => G.scores[b] - G.scores[a]);
-  const rank = order.filter(p => G.scores[p] > G.scores[ME]).length + 1, st = G.st;
-  document.getElementById('rRank').textContent = `${rank}位`;
-  document.getElementById('rScore').textContent = `${G.scores[ME]}点`;
-  document.getElementById('rOk').textContent = `${st.ok} ／ ${st.ng}`;
+const RP_GAIN = [30, 12, -6, -18]; // 1位〜4位
+function finishMatch() {
+  const myScore = G.scores[ME];
+  const place = G.scores.filter(v => v > myScore).length + 1, st = G.st;
+  STATS.games[G.mode]++; if (place === 1) STATS.wins++;
+  STATS.ok += st.ok; STATS.ng += st.ng; st.pos.forEach(v => { STATS.posSum += v; STATS.posN++; });
+  $('rTitle').textContent = { solo: 'ひとりで練習', rank: 'ランクマッチ', room: 'ルーム戦' }[G.mode] + ' の結果';
+  $('rRank').textContent = `${place}位`;
+  $('rScore').textContent = `${myScore}点`;
+  $('rOk').textContent = `${st.ok} ／ ${st.ng}`;
   const avg = st.pos.length ? st.pos.reduce((a, b) => a + b, 0) / st.pos.length : null;
-  document.getElementById('rFast').textContent = avg === null ? '—' : `${Math.round(avg * 100)}%`;
-  document.getElementById('rFirst').textContent = st.best <= 1 ? `${Math.round(st.best * 100)}%` : '—';
-  const prev = load(bestKey(), null), isNew = !prev || G.scores[ME] > prev.score;
-  if (isNew) save(bestKey(), { score: G.scores[ME], rank });
-  const nb = document.getElementById('rNew'), nbOn = isNew && G.scores[ME] > 0;
-  nb.textContent = nbOn ? '自己ベスト更新！' : `相手：${LV_NAMES[G.lv]}・${G.n}問`; nb.style.color = nbOn ? '#ff7a7a' : 'rgba(255,255,255,.55)';
-  document.getElementById('result').style.display = 'flex';
+  $('rFast').textContent = avg === null ? '—' : `${Math.round(avg * 100)}%`;
+  $('rFirst').textContent = st.best <= 1 ? `${Math.round(st.best * 100)}%` : '—';
+  const nb = $('rNew'), rpEl = $('rRp'); rpEl.textContent = ''; nb.textContent = ''; nb.style.color = 'rgba(255,255,255,.55)';
+  if (G.mode === 'rank') {
+    // ランクが上の相手に勝つと少し多め、下の相手に負けると少し多めに減る
+    const avgOpp = (G.players.reduce((a, p, i) => a + (i === ME ? 0 : p.rp), 0)) / 3;
+    let d = RP_GAIN[place - 1] + Math.round(clamp((avgOpp - ME_DATA.rp) / 50, -5, 5));
+    if (tierOf(ME_DATA.rp) === 0 && d < 0) d = 0; // ビギナーは下がらない
+    const before = ME_DATA.rp; ME_DATA.rp = Math.max(0, ME_DATA.rp + d); ME_DATA.peak = Math.max(ME_DATA.peak, ME_DATA.rp);
+    const up = rankIdx(ME_DATA.rp) > rankIdx(before), down = rankIdx(ME_DATA.rp) < rankIdx(before);
+    rpEl.innerHTML = `<span style="color:${d >= 0 ? '#7dffa0' : '#ff8a8a'}">${d >= 0 ? '+' : ''}${d} pt</span>　${rankName(ME_DATA.rp)}`;
+    if (up) { nb.textContent = `ランクアップ！ ${rankName(ME_DATA.rp)}`; nb.style.color = '#ffcc33'; SFX.correct(); }
+    else if (down) { nb.textContent = `${rankName(ME_DATA.rp)} に下がりました`; nb.style.color = '#8fb0ff'; }
+    STATS.hist.unshift({ d: Date.now(), place, score: myScore, rp: ME_DATA.rp, delta: d }); STATS.hist = STATS.hist.slice(0, 20);
+  } else if (G.mode === 'solo') {
+    const prev = load(bestKey(), null), isNew = !prev || myScore > prev.score;
+    if (isNew) save(bestKey(), { score: myScore, rank: place });
+    if (isNew && myScore > 0) { nb.textContent = '自己ベスト更新！'; nb.style.color = '#ff7a7a'; }
+    else nb.textContent = `相手：${LV_NAMES[G.lv]}・${G.n}問`;
+  } else nb.textContent = `部屋 ${room ? room.code : ''}`;
+  saveMe(); show('result');
 }
-document.getElementById('goBtn').addEventListener('click', startGame);
-document.getElementById('againBtn').addEventListener('click', startGame);
-document.getElementById('menuBtn').addEventListener('click', openMenu);
+$('againBtn').addEventListener('click', () => { ({ solo: startSolo, rank: openMatch, room: () => $('rStart').click() })[G.mode](); });
+$('menuBtn').addEventListener('click', openHome);
+$('goBtn').addEventListener('click', startSolo);
+
+// ── 成績 ──
+function openStats() {
+  G.phase = 'menu'; show('stats'); paintBadge($('sBadge'), ME_DATA.rp);
+  $('sRp').innerHTML = `${rpText(ME_DATA.rp)}<br>最高：${rankName(ME_DATA.peak)}`;
+  const g = STATS.games, total = g.solo + g.rank + g.room, rate = STATS.ok + STATS.ng ? Math.round(STATS.ok / (STATS.ok + STATS.ng) * 100) : null;
+  const cells = [[`${total}`, '試合数'], [`${STATS.wins}`, '1位になった回数'], [rate === null ? '—' : `${rate}%`, '正解率'],
+    [STATS.posN ? `${Math.round(STATS.posSum / STATS.posN * 100)}%` : '—', '押した位置（平均）'], [`${g.rank}`, 'ランクマッチ'], [`${g.room} ／ ${g.solo}`, 'ルーム戦 ／ 練習']];
+  $('sGrid').innerHTML = cells.map(c => `<div><b>${c[0]}</b><span>${c[1]}</span></div>`).join('');
+  $('sHist').innerHTML = STATS.hist.length ? '<b>最近のランクマッチ</b><br>' + STATS.hist.slice(0, 8).map(h =>
+    `${new Date(h.d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}　${h.place}位　${h.score}点　<span style="color:${h.delta >= 0 ? '#7dffa0' : '#ff8a8a'}">${h.delta >= 0 ? '+' : ''}${h.delta}</span>　${rankName(h.rp)}`).join('<br>') : 'まだランクマッチの記録はありません';
+}
 // 視点は指やマウスでは動かさない。ピンチやダブルタップの拡大も止める
 for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -1231,7 +1406,7 @@ function showProg() { document.getElementById('load').textContent = `会場を�
 (async () => {
   try {
     const names = [...new Set(Object.values(AVATARS))]; totalN = names.length + 1; showProg();
-    const [aud, ...chars] = await Promise.all([loadGLB('audience'), ...names.map(loadGLB)]);
+    const [aud, ...chars] = await Promise.all([loadGLB('audience'), ...names.map(loadGLB), loadQuestions()]);
     const byName = {}; names.forEach((n, i) => byName[n] = chars[i]);
     buildAudience(aud);
     for (let i = 0; i < 4; i++) seats[i].rig = setupAvatar(byName[AVATARS[i]], seats[i].g);
