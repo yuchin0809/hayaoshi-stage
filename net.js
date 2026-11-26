@@ -141,7 +141,7 @@ export class CloudNet {
 
 // サーバーの住所（例: 'wss://hayaoshi-server.あなたの名前.workers.dev/ws'）。空ならサーバーなしで動く
 // ページの住所に ?server=wss://... をつけると、その住所を試せる
-export const SERVER_URL = '';
+export const SERVER_URL = 'wss://hayaoshi-server.yuchin08092010.workers.dev/ws';
 export function makeNet() {
   let url = SERVER_URL;
   try { const q = new URLSearchParams(location.search).get('server'); if (q && /^wss?:\/\//.test(q)) url = q; } catch (e) {}
