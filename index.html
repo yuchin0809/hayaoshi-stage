@@ -163,6 +163,7 @@
     <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
       <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
     <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
+    <div class="best" id="rWait" style="display:none">部屋の主がスタートするのを待っています…</div>
     <div class="best">問題は、部屋でいちばん高いランクと低いランクの間から出ます</div>
   </div>
   <button class="back" id="rBack">← もどる</button>
@@ -188,7 +189,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { emblemSVG } from './emblem.js';
-import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX } from './net.js';
+import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -818,21 +819,6 @@ async function loadQuestions() {
     try { const r = await fetch(`questions/lv${L}.json`); const a = await r.json(); QB[L] = a.map((x, i) => ({ q: x[0], a: x[1], y: x[2], lv: L, id: `${L}:${i}` })); } catch (e) { console.warn('問題の読み込み失敗', L, e); }
   }));
 }
-// ランク帯ごとの「問題レベルの混ぜ方」（%）。上のランクほど難しい問題が多い
-// レベル: 1かんたん 2ふつう 3ややむずかしい 4むずかしい 5難問 6超難問（マスター用）
-const LV_MIX = [
-  [10, 40, 35, 15, 0, 0],  // ビギナー
-  [0, 15, 40, 35, 10, 0],  // ブロンズ
-  [0, 0, 20, 40, 30, 10],  // シルバー
-  [0, 0, 0, 20, 45, 35],   // ゴールド
-  [0, 0, 0, 0, 25, 75],    // マスター（ほぼ超難問）
-];
-// 部屋の中でいちばん低いランク帯〜高いランク帯の混ぜ方を平均して使う
-function mixForTiers(lo, hi) {
-  const w = [0, 0, 0, 0, 0, 0];
-  for (let t = lo; t <= hi; t++) LV_MIX[t].forEach((v, k) => w[k] += v / (hi - lo + 1));
-  return w;
-}
 let QUESTIONS = [];
 // 最近出た問題はなるべく出さない
 function pickQuestions(n, weights) {
@@ -870,17 +856,10 @@ function choicesFor(c) {
 /* ============ ゲームの進行 ============ */
 const G = { players: [], mode: 'solo', phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
   ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, lv: 1, n: 10, st: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
-const CHARS_PER_SEC = 8;
 const ui = { answer: document.getElementById('answer'), choices: document.getElementById('choices'), tbar: document.querySelector('#tbar i'),
   hint: document.getElementById('hint'), qno: document.getElementById('qno'), score: document.getElementById('score') };
 
-// CPUの強さ（0〜1）から、押す確率・押す位置・正解率などを決める
-function botParams(st) {
-  const x = clamp(st, 0, 1);
-  return { prob: .35 + .55 * x, from: .8 - .5 * x, span: .3 + .15 * x, skill: .55 + .37 * x, delay: [.4 - .32 * x, .75 - .45 * x] };
-}
 const SOLO_STRENGTH = [.16, .5, .72];          // やさしい・ふつう・つよい
-function rankStrength(rp) { return .1 + rankIdx(rp) / MAX_IDX * .65; }
 // 「第○問」の大きな文字（毎フレーム動かす）
 let bannerT = 9; const bannerEl = document.getElementById('banner');
 function animBanner(dt) {
@@ -908,7 +887,7 @@ function startQuestion() {
     const L = botParams(G.players[i].str - (Q.lv - 2 - G.players[i].tier) * .07);
     return rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + rnd() * L.span, .25, 1)), delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
   }).filter(Boolean);
-  G.ANS_LIMIT = Math.max(10, 3 + Q.y.length * 1.3);
+  G.ANS_LIMIT = ansLimit(Q.y);
   ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = .7;
   crowd.focus.set(0, 1.4, -9.6); drawVision();
 }
@@ -935,6 +914,7 @@ function pickChar(ch) {
   if (G.phase !== 'answering' || G.buzzer !== ME) return;
   const Q = QUESTIONS[G.qi];
   SFX.tick();
+  if (G.online) { if (G.waitChar) return; G.waitChar = true; ui.choices.style.opacity = .5; net.send({ t: 'char', ch }); return; }
   if (ch === Q.y[G.ansPos]) { G.ansPos++; if (G.ansPos >= Q.y.length) judge(true); else showChoices(); }
   else judge(false);
 }
@@ -964,6 +944,12 @@ function nextQuestion() {
 }
 function tickGame(dt) {
   const Q = QUESTIONS[G.qi];
+  if (G.online) { // オンラインでは進行はサーバーの合図で動く。ここでは見た目だけ進める
+    if (G.phase === 'reading' && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
+    else if (G.phase === 'answering') { G.ansT += dt; if (G.buzzer === ME) ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; }
+    else if (G.phase === 'judge') G.judge.t += dt;
+    return;
+  }
   if (G.phase === 'ready') { G.wait -= dt; if (G.wait <= 0) introQuestion(); }
   else if (G.phase === 'intro') { G.wait -= dt; if (G.wait <= 0) startQuestion(); }
   else if (G.phase === 'reading') {
@@ -1079,6 +1065,7 @@ function drawVision() {
 function onPress() {
   if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result') return;
   startMyPress();
+  if (G.online) { if (G.phase === 'reading' && !G.locked.has(ME)) net.send({ t: 'buzz' }); return; }
   if (G.phase === 'reading') buzz(ME);
 }
 renderer.domElement.addEventListener('pointerdown', e => { e.preventDefault(); onPress(); });
@@ -1120,7 +1107,7 @@ function openHome() {
   paintBadge($('hBadge'), ME_DATA.rp); $('hName').value = ME_DATA.name;
   $('hBar').style.width = rankIdx(ME_DATA.rp) >= MAX_IDX ? '100%' : `${(ME_DATA.rp % RP_PER)}%`;
   $('hRp').textContent = rpText(ME_DATA.rp);
-  $('netTxt').textContent = net.online ? 'サーバーにつながっています' : '今はサーバーにつながっていないので、対戦相手はCPUです';
+  $('netTxt').textContent = net.online ? 'オンライン対戦できます（人が足りないときはCPUが入ります）' : '今はサーバーにつながっていないので、対戦相手はCPUです';
   setPlayers([{ name: 'ハルト' }, { name: ME_DATA.name }, { name: 'ミサキ' }, { name: 'ケンジ' }]);
   drawVision();
 }
@@ -1168,7 +1155,8 @@ function openMatch() {
   $('mSub').innerHTML = `あなたは ${embI(me.rp)} <b style="color:${rankColor(me.rp)}">${rankName(me.rp)}</b>`;
   $('mState').textContent = '対戦相手を探しています…'; $('mTime').textContent = '0秒';
   paintSlots($('mSlots'), [me]);
-  net.findMatch(me, ({ sec, range, players }) => {
+  net.findMatch(me, ({ sec, range, players, error }) => {
+    if (error) { $('mState').textContent = error; return; }
     matchRange = range; $('mTime').textContent = `${sec}秒`;
     const same = range[0] === range[1];
     $('mState').textContent = same ? `${TIERS[range[0]]}の人を探しています…` : `${TIERS[range[0]]}〜${TIERS[range[1]]}までひろげて探しています…`;
@@ -1201,18 +1189,37 @@ function openRoom() {
   G.phase = 'menu'; show('room'); room = null;
   $('roomEntry').style.display = 'block'; $('roomLobby').style.display = 'none'; $('rErr').textContent = ''; $('rCode').value = '';
 }
+function showLobby() {
+  $('roomEntry').style.display = 'none'; $('roomLobby').style.display = 'block'; $('rCodeShow').textContent = room.code;
+  const host = !room.online || room.host;
+  $('rBot').style.display = $('rStart').style.display = host ? '' : 'none';
+  $('optRN').parentElement.style.display = host ? '' : 'none';
+  $('rWait').style.display = host ? 'none' : 'block';
+  paintRoom();
+}
 $('rCreate').addEventListener('click', () => {
-  room = net.createRoom({ name: ME_DATA.name, rp: ME_DATA.rp });
-  $('roomEntry').style.display = 'none'; $('roomLobby').style.display = 'block'; $('rCodeShow').textContent = room.code; paintRoom();
+  const me = { name: ME_DATA.name, rp: ME_DATA.rp };
+  if (net.online) {
+    room = { online: true, code: '・・・・', host: true, list: [me] }; showLobby();
+    net.createRoom(me, G.rn).catch(e => { openRoom(); $('rErr').textContent = e.message; });
+    return;
+  }
+  room = net.createRoom(me); showLobby();
 });
 $('rJoin').addEventListener('click', () => {
   const code = $('rCode').value.trim();
   if (!/^\d{4}$/.test(code)) { $('rErr').textContent = '4けたの数字を入れてね'; return; }
-  net.joinRoom(code).then(() => {}).catch(e => { $('rErr').textContent = e.message; });
+  $('rErr').textContent = net.online ? 'つないでいます…' : '';
+  net.joinRoom({ name: ME_DATA.name, rp: ME_DATA.rp }, code).then(() => {}).catch(e => { $('rErr').textContent = e.message; });
 });
-$('rBot').addEventListener('click', () => { if (!room || room.players.length >= 3) return; net.addBot(room, ME_DATA); paintRoom(); SFX.tick(); });
+$('rBot').addEventListener('click', () => {
+  if (!room) return;
+  if (room.online) { net.addBot(); SFX.tick(); return; }
+  if (room.players.length >= 3) return; net.addBot(room, ME_DATA); paintRoom(); SFX.tick();
+});
 $('rStart').addEventListener('click', () => {
   if (!room) return;
+  if (room.online) { if (room.host) net.startRoom(G.rn); return; }
   while (room.players.length < 3) net.addBot(room, ME_DATA); // 足りない席はCPU
   G.mode = 'room';
   const o = room.players;
@@ -1220,12 +1227,52 @@ $('rStart').addEventListener('click', () => {
   const tiers = G.players.map(p => p.tier);
   beginMatch(pickQuestions(G.rn, mixForTiers(Math.min(...tiers), Math.max(...tiers))));
 });
-$('rBack').addEventListener('click', () => { room ? openRoom() : openHome(); });
-function paintRoom() { paintSlots($('rSlots'), [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players]); }
+$('rBack').addEventListener('click', () => { if (room && room.online) net.leaveRoom(); room ? openRoom() : openHome(); });
+function paintRoom() { paintSlots($('rSlots'), room.online ? room.list : [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players]); }
+
+// ── サーバーからの合図（オンラインのときだけ使う） ──
+let SEAT = 0;                                  // サーバーでの自分の席
+const cli = s => (s - SEAT + ME + 4) % 4;      // サーバーの席 → 画面の席（自分はいつも ME）
+net.on('room', m => {
+  room = { online: true, code: m.code, host: m.host, list: m.players };
+  if (G.phase === 'menu' && $('room').style.display !== 'none') showLobby();
+});
+net.on('error', m => { $('rErr').textContent = m.msg; });
+net.on('begin', m => {
+  SEAT = m.seat; G.mode = m.mode;
+  const list = []; m.players.forEach((p, s) => list[cli(s)] = { name: p.name, rp: p.rp });
+  setPlayers(list);
+  beginMatch(m.questions); G.online = true;
+});
+net.on('intro', m => { if (!G.online) return; G.qi = m.i; introQuestion(); });
+net.on('read', m => {
+  if (!G.online) return;
+  if (m.fresh) { G.qi = m.i; startQuestion(); G.cpuPlan = []; }
+  else { G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6); if (!G.locked.has(ME)) ui.hint.style.opacity = .7; }
+  G.shown = m.shown; G.acc = 0;
+});
+net.on('buzzed', m => { if (!G.online) return; G.phase = 'reading'; G.shown = m.shown; G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
+net.on('char', m => {
+  if (!G.online || G.phase !== 'answering') return;
+  if (cli(m.seat) === ME) { G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1; showChoices(); }
+  else { G.cpuAns = QUESTIONS[G.qi].y.slice(0, m.pos); SFX.tick(); }
+});
+net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
+net.on('reveal', () => { if (G.online) reveal(); });
+net.on('end', m => {
+  if (!G.online) return;
+  m.scores.forEach((v, s) => G.scores[cli(s)] = v);
+  G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; ui.answer.style.display = 'none'; setTimeout(finishMatch, 2200);
+});
+net.on('close', () => {
+  const inGame = G.online && G.phase !== 'result' && G.phase !== 'menu';
+  G.online = false; room = null; ui.answer.style.display = 'none';
+  if (inGame || G.phase === 'menu') { openHome(); $('netTxt').textContent = 'サーバーとの接続が切れました。もう一度ためしてね'; }
+});
 
 // ── 試合の開始と終了 ──
 function beginMatch(qs) {
-  show(null); QUESTIONS = qs; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
+  show(null); QUESTIONS = qs; G.online = false; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
   ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = 1.2; monKey = ''; drawVision();
 }
 const RP_GAIN = [30, 12, -6, -18]; // 1位〜4位
@@ -1261,7 +1308,7 @@ function finishMatch() {
   } else nb.textContent = `部屋 ${room ? room.code : ''}`;
   saveMe(); show('result');
 }
-$('againBtn').addEventListener('click', () => { ({ solo: startSolo, rank: openMatch, room: () => $('rStart').click() })[G.mode](); });
+$('againBtn').addEventListener('click', () => { ({ solo: startSolo, rank: openMatch, room: () => { if (room && room.online) { G.phase = 'menu'; show('room'); showLobby(); } else $('rStart').click(); } })[G.mode](); });
 $('menuBtn').addEventListener('click', openHome);
 $('goBtn').addEventListener('click', startSolo);
 
@@ -1423,7 +1470,7 @@ function showProg() { document.getElementById('load').textContent = `会場を�
     ready = true; document.getElementById('load').textContent = '準備できました';
   } catch (e) { console.error(e); document.getElementById('load').textContent = '読み込みに失敗しました。ページを開き直してください'; }
 })();
-window.__G = G; window.__onPress = onPress;
+window.__G = G; window.__onPress = onPress; window.__QS = () => QUESTIONS;
 let freeCam = false; window.__view = (p, t) => { freeCam = true; scene.attach(camera); camera.position.set(...p); camera.lookAt(...t); };
 frame();
 </script>
