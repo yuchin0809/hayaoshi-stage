@@ -970,15 +970,20 @@ addEventListener('resize', onResize); onResize();
 drawVision(); drawMonitor(0);
 /* ============ モデルの読み込み ============ */
 const gl = new GLTFLoader();
-const prog = {};
-function loadGLB(name) {
-  return new Promise((res, rej) => gl.load('models/' + name + '.glb', res, e => { prog[name] = [e.loaded, e.total || e.loaded]; showProg(); }, rej));
+let loadedN = 0, totalN = 1;
+// models/○○.glb を読む。置けない場所では、同じ中身を文字にした ○○.glb.txt を読む
+async function fetchModel(name) {
+  try { const r = await fetch('models/' + name + '.glb'); if (r.ok && !(r.headers.get('content-type') || '').includes('text/html')) return await r.arrayBuffer(); } catch (e) {}
+  const t = await (await fetch('models/' + name + '.glb.txt')).text();
+  const bin = atob(t.trim()), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer;
 }
-function showProg() { let a = 0, b = 0; for (const k in prog) { a += prog[k][0]; b += prog[k][1]; }
-  if (b) document.getElementById('load').textContent = `会場を準備中… ${Math.floor(a / Math.max(b, 2.2e7) * 100)}%`; }
+function loadGLB(name) {
+  return fetchModel(name).then(buf => { loadedN++; showProg(); return new Promise((res, rej) => gl.parse(buf, '', res, rej)); });
+}
+function showProg() { document.getElementById('load').textContent = `会場を準備中… ${Math.floor(loadedN / totalN * 100)}%`; }
 (async () => {
   try {
-    const names = [...new Set(Object.values(AVATARS))];
+    const names = [...new Set(Object.values(AVATARS))]; totalN = names.length + 1; showProg();
     const [aud, ...chars] = await Promise.all([loadGLB('audience'), ...names.map(loadGLB)]);
     const byName = {}; names.forEach((n, i) => byName[n] = chars[i]);
     buildAudience(aud);
