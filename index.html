@@ -877,7 +877,7 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 
 /* ============ 毎フレームの更新 ============ */
 const clock = new THREE.Clock();
-let zoomK = 0; const MON_PITCH = -.28, MON_N = new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), MON_C = new THREE.Vector3(-.08, .95, -.29).addScaledVector(new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), .0145);
+let zoomK = 0; const ZOOM_PITCH = -.5, ZOOM_F = new THREE.Vector3(0, Math.sin(-.5), -Math.cos(-.5)), ZOOM_T = new THREE.Vector3(-.03, .905, -.17); const MON_PITCH = -.28, MON_N = new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), MON_C = new THREE.Vector3(-.08, .95, -.29).addScaledVector(new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), .0145);
 let yaw = 0, pitch = -.3, fpsAcc = 0, fpsN = 0, fpsChecked = false, ready = false;
 function update(dt, t) {
   tickGame(dt);
@@ -945,15 +945,16 @@ function update(dt, t) {
     wantYaw = Math.atan2(-d.x, -d.z) * .3; wantPitch = -.22; }
   yaw = lerp(yaw, wantYaw, Math.min(1, dt * 2.2)); pitch = lerp(pitch, wantPitch, Math.min(1, dt * 2.2));
   // 問題を読んでいる間はモニターへズーム（入るときはゆっくり、出るときは素早く）
-  const zoomWant = G.phase === 'reading' ? 1 : 0;
+  const zoomWant = (G.phase === 'reading' || (G.phase === 'answering' && G.buzzer === ME)) ? 1 : 0;
   zoomK = zoomWant > zoomK ? Math.min(1, zoomK + dt / .9) : Math.max(0, zoomK - dt / .28);
   const ez = easeInOut(zoomK);
   const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const dist = Math.max((.39 / .92 / 2) / (tanH * camera.aspect), (.2306 / .9 / 2) / tanH);
-  const zoomPos = MON_C.clone().addScaledVector(MON_N, dist);
+  // モニター（上）とボタン（下）が両方入る距離まで寄る
+  const dist = Math.max((.52 / .94 / 2) / (tanH * camera.aspect), (.44 / .94 / 2) / tanH);
+  const zoomPos = ZOOM_T.clone().addScaledVector(ZOOM_F, -dist);
   const basePos = new THREE.Vector3(CAM_BASE.x, CAM_BASE.y + Math.sin(t * 1.6) * .002 + lean * .2, CAM_BASE.z + lean * .55);
   camera.position.lerpVectors(basePos, zoomPos, ez);
-  camera.rotation.set(lerp(pitch + Math.sin(t * 1.6) * .003 + lean * .25, MON_PITCH, ez), lerp(yaw + Math.sin(t * .37) * .004, 0, ez), 0);
+  camera.rotation.set(lerp(pitch + Math.sin(t * 1.6) * .003 + lean * .25, ZOOM_PITCH + lean * .25 * ez, ez), lerp(yaw + Math.sin(t * .37) * .004, 0, ez), 0);
   // 光の柱をゆっくり動かす
   beams.forEach((b, k) => b.material.uniforms.op.value = .07 + Math.sin(t * .6 + k) * .02 + (G.judge && G.judge.ok && G.judge.t < 1.5 ? .06 : 0));
   ring.material.emissiveIntensity = 2.2 + Math.sin(t * 2) * .5;
