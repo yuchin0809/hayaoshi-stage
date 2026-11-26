@@ -32,6 +32,38 @@
     font-size:clamp(28px,5vw,44px);font-weight:700;font-family:inherit;
     -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:manipulation}
   #choices button:active{background:rgba(255,204,51,.5)}
+  .panel{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:8;
+    background:radial-gradient(ellipse at 50% 45%,rgba(10,16,36,.72) 0%,rgba(3,4,8,.88) 75%);padding:16px}
+  .card{width:min(560px,100%);max-height:100%;overflow:auto;text-align:center;padding:18px 20px 20px;
+    border:1px solid rgba(255,255,255,.18);border-radius:22px;background:rgba(12,18,36,.78);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-sizing:border-box}
+  .card h2{margin:0 0 4px;font-size:clamp(22px,4.4vw,32px);letter-spacing:.08em}
+  .card .sub{font-size:13px;opacity:.65;margin:0 0 10px}
+  .row{margin:10px 0 0}
+  .row .lab{font-size:12px;opacity:.6;margin-bottom:6px;letter-spacing:.1em}
+  .seg{display:flex;gap:8px;justify-content:center}
+  .seg button,.btn{flex:1;max-width:150px;padding:11px 6px;border-radius:12px;border:1px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:16px;font-weight:700;touch-action:manipulation}
+  .seg button small{display:block;font-size:10px;font-weight:400;opacity:.65;margin-top:2px}
+  .seg button.on{background:#ffcc33;color:#1a1300;border-color:#ffcc33}
+  .seg button.on small{opacity:.8}
+  .btn.go{display:block;margin:16px auto 0;max-width:280px;width:100%;padding:14px;font-size:19px;
+    background:linear-gradient(#ff4b4b,#c8141c);border-color:#ff8080}
+  .btn.sec{background:transparent}
+  .best{font-size:12px;opacity:.6;margin-top:10px}
+  #banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:6;opacity:0}
+  #banner div{font-size:clamp(56px,13vw,120px);font-weight:900;letter-spacing:.06em;
+    background:linear-gradient(#fff6c8,#ffcc33 55%,#e59a00);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 0 rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(255,190,40,.45))}
+  #banner small{position:absolute;top:calc(50% + clamp(40px,8vw,74px));font-size:clamp(14px,2.4vw,20px);font-weight:700;opacity:.85;
+    letter-spacing:.2em;text-shadow:0 2px 6px #000}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 0}
+  .stats div{background:rgba(255,255,255,.06);border-radius:12px;padding:8px 4px}
+  .stats b{display:block;font-size:22px}
+  .stats span{font-size:11px;opacity:.6}
+  .rank{font-size:clamp(40px,9vw,64px);font-weight:900;color:#ffcc33;line-height:1.1}
+  .newbest{color:#ff7a7a;font-weight:700;font-size:13px;min-height:1em}
+  .btns{display:flex;gap:8px;justify-content:center;margin-top:14px}
   #rotate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
     background:#05060a;z-index:20;font-size:18px;text-align:center;padding:16px}
   @media (orientation:portrait) and (max-width:900px){#rotate{display:flex}}
@@ -47,13 +79,31 @@
 <div id="start">
   <h1>早押しステージ</h1>
   <p>あなたは早押しクイズ大会の出場者です</p>
-  <p style="font-size:13px">（試作版・会場の確認用）</p>
+  <p style="font-size:13px">ソロ練習（CPUと対戦）</p>
   <div class="tap">タップして入場</div>
   <div class="load" id="load">会場を準備中…</div>
 </div>
 <div id="hud"><span id="qno"></span><span id="score"></span></div>
 <div id="hint">画面をタップすると早押し</div>
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
+<div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
+<div class="panel" id="menu"><div class="card">
+  <h2>ソロ練習</h2><p class="sub">CPUの3人と早押し勝負</p>
+  <div class="row"><div class="lab">相手の強さ</div><div class="seg" id="optLv">
+    <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>すごく速い</small></button></div></div>
+  <div class="row"><div class="lab">問題の数</div><div class="seg" id="optN">
+    <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
+  <button class="btn go" id="goBtn">スタート</button>
+  <div class="best" id="bestTxt"></div>
+</div></div>
+<div class="panel" id="result"><div class="card">
+  <h2>結果</h2><div class="rank" id="rRank"></div><div class="newbest" id="rNew"></div>
+  <div class="stats">
+    <div><b id="rScore"></b><span>得点</span></div><div><b id="rOk"></b><span>正解 ／ 誤答</span></div>
+    <div><b id="rFast"></b><span>押した位置（平均）</span></div><div><b id="rFirst"></b><span>いちばん早い正解</span></div>
+  </div>
+  <div class="btns"><button class="btn go" id="againBtn" style="margin:0">もう一度</button><button class="btn sec" id="menuBtn">設定を変える</button></div>
+</div></div>
 <div id="rotate"><div style="font-size:42px">↻</div><p>横向きにして遊んでね</p></div>
 
 <script type="module">
@@ -643,7 +693,7 @@ function initAudio() {
   const nb = noiseBuffer(4); const src = AC.createBufferSource(); src.buffer = nb; src.loop = true;
   const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = .7;
   const bp2 = AC.createBiquadFilter(); bp2.type = 'peaking'; bp2.frequency.value = 1200; bp2.gain.value = 4;
-  murmurGain = AC.createGain(); murmurGain.gain.value = .045;
+  murmurGain = AC.createGain(); murmurGain.gain.value = 0; // ふだんは無音（問題中に「ざー」と鳴らない）
   src.connect(bp); bp.connect(bp2); bp2.connect(murmurGain); murmurGain.connect(master); murmurGain.connect(verb); src.start();
 }
 function noiseBuffer(sec) { const b = AC.createBuffer(1, AC.sampleRate * sec, AC.sampleRate), d = b.getChannelData(0);
@@ -673,23 +723,110 @@ const SFX = {
       const p = AC.createStereoPanner ? AC.createStereoPanner() : null; if (p) { p.pan.value = Math.random() * 2 - 1; s.connect(f); f.connect(g); g.connect(p); out(p, .35); } else { s.connect(f); f.connect(g); out(g, .35); }
       s.start(t, Math.random() * .1, .07); } },
   swell(v = .12, dur = 1.2) { if (!murmurGain) return; const t = AC.currentTime; murmurGain.gain.cancelScheduledValues(t);
-    murmurGain.gain.setValueAtTime(murmurGain.gain.value, t); murmurGain.gain.linearRampToValueAtTime(v, t + .25); murmurGain.gain.linearRampToValueAtTime(.045, t + dur); },
+    murmurGain.gain.setValueAtTime(murmurGain.gain.value, t); murmurGain.gain.linearRampToValueAtTime(v, t + .2); murmurGain.gain.linearRampToValueAtTime(0, t + dur); },
+  intro() { if (!AC) return; const t = AC.currentTime + .02; // 「第○問」のジングル
+    [[784, 0], [1046.5, .12], [1318.5, .24]].forEach(([f, d]) => { tone(f, t + d, .5, 'triangle', .1, .3); tone(f * 2, t + d, .25, 'sine', .03, .3); });
+    [523.25, 659.25, 784, 1046.5].forEach(f => tone(f, t + .4, 1.1, 'sine', .07, .4)); },
 };
 
-/* ============ 問題（試作用の5問） ============ */
-const QUESTIONS = [
-  { q: '日本で一番高い山は富士山ですが、2番目に高い山は何でしょう？', a: '北岳', y: 'きただけ' },
-  { q: '1年でいちばん昼が長い日を夏至といいますが、いちばん昼が短い日を何というでしょう？', a: '冬至', y: 'とうじ' },
-  { q: '日本の都道府県で、面積がいちばん小さいのは香川県ですが、いちばん大きいのはどこでしょう？', a: '北海道', y: 'ほっかいどう' },
-  { q: '太陽系の惑星で、太陽にいちばん近いのは水星ですが、いちばん遠いのは何でしょう？', a: '海王星', y: 'かいおうせい' },
-  { q: '水がこおる温度は0度ですが、1気圧で水がふっとうする温度は何度でしょう？', a: '100度', y: '100' },
+/* ============ 問題（オリジナル。lv 1=やさしい 2=ふつう） ============ */
+const BANK = [
+  {"lv": 1, "q": "日本で一番高い山は富士山ですが、2番目に高い山は何でしょう？", "a": "北岳", "y": "きただけ"},
+  {"lv": 1, "q": "1年でいちばん昼が長い日を夏至といいますが、いちばん昼が短い日を何というでしょう？", "a": "冬至", "y": "とうじ"},
+  {"lv": 1, "q": "日本の都道府県で、面積がいちばん小さいのは香川県ですが、いちばん大きいのはどこでしょう？", "a": "北海道", "y": "ほっかいどう"},
+  {"lv": 1, "q": "太陽系の惑星で、太陽にいちばん近いのは水星ですが、いちばん遠いのは何でしょう？", "a": "海王星", "y": "かいおうせい"},
+  {"lv": 1, "q": "水がこおる温度は0度ですが、1気圧で水がふっとうする温度は何度でしょう？", "a": "100度", "y": "100"},
+  {"lv": 1, "q": "日本でいちばん長い川は何でしょう？", "a": "信濃川", "y": "しなのがわ"},
+  {"lv": 1, "q": "日本でいちばん面積が大きい湖は何でしょう？", "a": "琵琶湖", "y": "びわこ"},
+  {"lv": 1, "q": "太陽系の惑星で、いちばん大きいのは何でしょう？", "a": "木星", "y": "もくせい"},
+  {"lv": 1, "q": "「坊っちゃん」や「吾輩は猫である」を書いた作家は誰でしょう？", "a": "夏目漱石", "y": "なつめそうせき"},
+  {"lv": 1, "q": "ふつうの年は365日ですが、うるう年は1年が何日でしょう？", "a": "366日", "y": "366"},
+  {"lv": 1, "q": "光の三原色は、赤と緑と何色でしょう？", "a": "青", "y": "あお"},
+  {"lv": 1, "q": "元素記号「H」で表される、いちばん軽い元素は何でしょう？", "a": "水素", "y": "すいそ"},
+  {"lv": 2, "q": "元素記号「O」は酸素ですが、元素記号「Fe」で表される元素は何でしょう？", "a": "鉄", "y": "てつ"},
+  {"lv": 2, "q": "日本の首都は東京ですが、オーストラリアの首都はどこでしょう？", "a": "キャンベラ", "y": "きゃんべら"},
+  {"lv": 1, "q": "1から10までの整数をすべて足すと、いくつになるでしょう？", "a": "55", "y": "55"},
+  {"lv": 1, "q": "三角形の3つの角の大きさを足すと、何度になるでしょう？", "a": "180度", "y": "180"},
+  {"lv": 1, "q": "サッカーで、1チームがフィールドに出せる選手は何人でしょう？", "a": "11人", "y": "11"},
+  {"lv": 1, "q": "野球で、守備につく1チームの選手は何人でしょう？", "a": "9人", "y": "9"},
+  {"lv": 2, "q": "645年の大化の改新のときに定められた、日本で最初の元号は何でしょう？", "a": "大化", "y": "たいか"},
+  {"lv": 2, "q": "1192年に征夷大将軍となり、鎌倉幕府を開いた人物は誰でしょう？", "a": "源頼朝", "y": "みなもとのよりとも"},
+  {"lv": 2, "q": "江戸幕府を開いたのは徳川家康ですが、江戸幕府の最後の将軍は誰でしょう？", "a": "徳川慶喜", "y": "とくがわよしのぶ"},
+  {"lv": 2, "q": "「春はあけぼの」という書き出しで始まる、清少納言の随筆は何でしょう？", "a": "枕草子", "y": "まくらのそうし"},
+  {"lv": 1, "q": "平安時代に「源氏物語」を書いた人物は誰でしょう？", "a": "紫式部", "y": "むらさきしきぶ"},
+  {"lv": 2, "q": "日本の国会は2つの議院でできていますが、衆議院と、もう1つは何でしょう？", "a": "参議院", "y": "さんぎいん"},
+  {"lv": 1, "q": "1時間は60分ですが、1時間は何秒でしょう？", "a": "3600秒", "y": "3600"},
+  {"lv": 2, "q": "月の満ち欠けで、地球から月がほとんど見えない状態を何というでしょう？", "a": "新月", "y": "しんげつ"},
+  {"lv": 2, "q": "東京駅と新大阪駅を結ぶ新幹線は何でしょう？", "a": "東海道新幹線", "y": "とうかいどうしんかんせん"},
+  {"lv": 1, "q": "世界でいちばん面積が大きい国はどこでしょう？", "a": "ロシア", "y": "ろしあ"},
+  {"lv": 1, "q": "地球でいちばん広い海は何でしょう？", "a": "太平洋", "y": "たいへいよう"},
+  {"lv": 2, "q": "南アメリカ大陸で、面積がいちばん大きい国はどこでしょう？", "a": "ブラジル", "y": "ぶらじる"},
+  {"lv": 1, "q": "ギザのピラミッドがあり、首都をカイロとする国はどこでしょう？", "a": "エジプト", "y": "えじぷと"},
+  {"lv": 1, "q": "漢字の「森」には、「木」という字がいくつ入っているでしょう？", "a": "3つ", "y": "3"},
+  {"lv": 1, "q": "植物が光を使って、水と二酸化炭素から養分をつくるはたらきを何というでしょう？", "a": "光合成", "y": "こうごうせい"},
+  {"lv": 2, "q": "心臓から送り出される血液が流れる血管を、何というでしょう？", "a": "動脈", "y": "どうみゃく"},
+  {"lv": 2, "q": "ニュートンが発見した、すべての物体どうしが引き合う力を何というでしょう？", "a": "万有引力", "y": "ばんゆういんりょく"},
+  {"lv": 2, "q": "「ロミオとジュリエット」や「ハムレット」を書いたイギリスの劇作家は誰でしょう？", "a": "シェイクスピア", "y": "しぇいくすぴあ"},
+  {"lv": 1, "q": "「モナ・リザ」や「最後の晩餐」を描いた、イタリアの芸術家は誰でしょう？", "a": "レオナルド・ダ・ヴィンチ", "y": "だびんち"},
+  {"lv": 2, "q": "「ひまわり」の絵で知られる、オランダ生まれの画家は誰でしょう？", "a": "ゴッホ", "y": "ごっほ"},
+  {"lv": 2, "q": "「運命」や「第九」で知られる、ドイツの作曲家は誰でしょう？", "a": "ベートーヴェン", "y": "べーとーべん"},
+  {"lv": 1, "q": "日本の硬貨で、まん中に穴があいているのは5円玉と何円玉でしょう？", "a": "50円玉", "y": "50"},
+  {"lv": 2, "q": "2024年から発行されている新しい1万円札にえがかれている人物は誰でしょう？", "a": "渋沢栄一", "y": "しぶさわえいいち"},
+  {"lv": 1, "q": "47都道府県のうち、「府」がつくのは大阪府ともう1つはどこでしょう？", "a": "京都府", "y": "きょうと"},
+  {"lv": 1, "q": "日本でいちばん人口が多い都道府県はどこでしょう？", "a": "東京都", "y": "とうきょう"},
+  {"lv": 1, "q": "沖縄県の県庁所在地はどこでしょう？", "a": "那覇市", "y": "なは"},
+  {"lv": 2, "q": "「天は人の上に人を造らず」で知られる「学問のすゝめ」を書いた人物は誰でしょう？", "a": "福沢諭吉", "y": "ふくざわゆきち"},
+  {"lv": 2, "q": "中国の歴史書「魏志倭人伝」に登場する、卑弥呼が治めていた国は何でしょう？", "a": "邪馬台国", "y": "やまたいこく"},
+  {"lv": 1, "q": "「奈良の大仏」がある寺は何でしょう？", "a": "東大寺", "y": "とうだいじ"},
+  {"lv": 2, "q": "日本三景とは、松島、天橋立と、もう1つはどこでしょう？", "a": "宮島", "y": "みやじま"},
+  {"lv": 1, "q": "チェスで、将棋の王将にあたる駒は何でしょう？", "a": "キング", "y": "きんぐ"},
+  {"lv": 1, "q": "鉛筆などを数えるときに使う「1ダース」は何本でしょう？", "a": "12本", "y": "12"},
+  {"lv": 1, "q": "英語のアルファベットは全部で何文字でしょう？", "a": "26文字", "y": "26"},
+  {"lv": 1, "q": "正方形の1つの角の大きさは何度でしょう？", "a": "90度", "y": "90"},
+  {"lv": 2, "q": "円周率を表すときに使われるギリシャ文字は何でしょう？", "a": "π（パイ）", "y": "ぱい"},
+  {"lv": 1, "q": "1キロメートルは何メートルでしょう？", "a": "1000メートル", "y": "1000"},
+  {"lv": 1, "q": "タコの足は8本ですが、イカの足は一般に何本といわれるでしょう？", "a": "10本", "y": "10"},
+  {"lv": 1, "q": "カブトムシやチョウなどの昆虫の足は何本でしょう？", "a": "6本", "y": "6"},
+  {"lv": 1, "q": "昆虫の足は6本ですが、クモの足は何本でしょう？", "a": "8本", "y": "8"},
+  {"lv": 2, "q": "地球上でいちばん大きい動物といわれる、クジラのなかまは何でしょう？", "a": "シロナガスクジラ", "y": "しろながすくじら"},
+  {"lv": 1, "q": "陸上でいちばん速く走る動物といわれるのは何でしょう？", "a": "チーター", "y": "ちーたー"},
+  {"lv": 1, "q": "七夕で、天の川をはさんで織姫と会う星は何でしょう？", "a": "彦星", "y": "ひこぼし"},
+  {"lv": 1, "q": "昔話「桃太郎」で、桃太郎が鬼退治に向かった島は何でしょう？", "a": "鬼ヶ島", "y": "おにがしま"},
+  {"lv": 1, "q": "昔話「浦島太郎」で、浦島太郎が助けた生き物は何でしょう？", "a": "カメ", "y": "かめ"},
+  {"lv": 1, "q": "高さ634メートルで、日本でいちばん高いタワーは何でしょう？", "a": "東京スカイツリー", "y": "すかいつりー"},
+  {"lv": 2, "q": "東京スカイツリーの高さは634メートルですが、東京タワーの高さは何メートルでしょう？", "a": "333メートル", "y": "333"},
+  {"lv": 2, "q": "日本一高い山・富士山の高さは何メートルでしょう？", "a": "3776メートル", "y": "3776"},
+  {"lv": 2, "q": "日本で、国政選挙に投票できる年齢は何歳以上でしょう？", "a": "18歳", "y": "18"},
+  {"lv": 2, "q": "国会議事堂や首相官邸がある、東京都千代田区の地名は何でしょう？", "a": "永田町", "y": "ながたちょう"},
+  {"lv": 1, "q": "エッフェル塔があるパリを首都とする国はどこでしょう？", "a": "フランス", "y": "ふらんす"},
+  {"lv": 1, "q": "コロッセオで知られる、イタリアの首都はどこでしょう？", "a": "ローマ", "y": "ろーま"},
+  {"lv": 2, "q": "富士山がある2つの県は、山梨県と何県でしょう？", "a": "静岡県", "y": "しずおか"},
+  {"lv": 1, "q": "日本列島をつくる大きな4つの島のうち、いちばん面積が小さいのは何でしょう？", "a": "四国", "y": "しこく"},
+  {"lv": 2, "q": "1543年、鉄砲が日本に伝わったとされる島はどこでしょう？", "a": "種子島", "y": "たねがしま"},
+  {"lv": 2, "q": "1868年に、それまでの「慶応」から改められた元号は何でしょう？", "a": "明治", "y": "めいじ"},
+  {"lv": 1, "q": "鳴く虫の「スズムシ」や「コオロギ」が鳴くのは、オスとメスのどちらでしょう？", "a": "オス", "y": "おす"},
+  {"lv": 2, "q": "将棋で、自分の駒が相手の陣地に入ると強い駒に変わることを何というでしょう？", "a": "成る", "y": "なる"},
+  {"lv": 2, "q": "1年のうちで、昼と夜の長さがほぼ同じになる春の日を何というでしょう？", "a": "春分の日", "y": "しゅんぶん"},
+  {"lv": 1, "q": "水を冷やしてかためると何になるでしょう？", "a": "氷", "y": "こおり"},
+  {"lv": 2, "q": "ヒトの血液の中で、酸素を運ぶはたらきをする成分は何でしょう？", "a": "赤血球", "y": "せっけっきゅう"},
 ];
+let QUESTIONS = [];
+// 最近出た問題はなるべく出さない
+function pickQuestions(n) {
+  let recent = []; try { recent = JSON.parse(localStorage.getItem('hs_recent') || '[]'); } catch (e) {}
+  const ids = BANK.map((_, i) => i).sort(() => Math.random() - .5);
+  ids.sort((x, y) => (recent.includes(x) ? 1 : 0) - (recent.includes(y) ? 1 : 0));
+  const out = ids.slice(0, n);
+  try { localStorage.setItem('hs_recent', JSON.stringify([...out, ...recent].slice(0, Math.floor(BANK.length * .7)))); } catch (e) {}
+  return out.map(i => BANK[i]);
+}
 const ROWS = ['あいうえお', 'かきくけこ', 'さしすせそ', 'たちつてと', 'なにぬねの', 'はひふへほ', 'まみむめも', 'や ゆ よ', 'らりるれろ', 'わ を ん',
   'がぎぐげご', 'ざじずぜぞ', 'だぢづでど', 'ばびぶべぼ', 'ぱぴぷぺぽ'];
 const SMALL = { 'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お' };
 function choicesFor(c) {
   const pool = new Set();
   if (/[0-9]/.test(c)) '0123456789'.split('').forEach(x => pool.add(x));
+  else if (c === 'ー') 'ーっんゃゅょ'.split('').forEach(x => pool.add(x));
   else if (SMALL[c]) { pool.add(SMALL[c]); Object.keys(SMALL).forEach(x => pool.add(x)); }
   else {
     for (let r = 0; r < ROWS.length; r++) { const k = ROWS[r].indexOf(c); if (k < 0) continue;
@@ -704,15 +841,42 @@ function choicesFor(c) {
 
 /* ============ ゲームの進行 ============ */
 const G = { phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
-  ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
+  ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, lv: 1, n: 10, st: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
 const CHARS_PER_SEC = 8;
 const ui = { answer: document.getElementById('answer'), choices: document.getElementById('choices'), tbar: document.querySelector('#tbar i'),
   hint: document.getElementById('hint'), qno: document.getElementById('qno'), score: document.getElementById('score') };
 
+// CPUの強さ: 押す確率・押す位置（問題文の何割で押すか）・正解率
+const CPU_LV = [
+  { prob: .45, from: .72, span: .3, skill: [.6, .55, .65], delay: [.35, .7] },
+  { prob: .62, from: .5, span: .45, skill: [.75, .7, .8], delay: [.15, .5] },
+  { prob: .85, from: .32, span: .45, skill: [.88, .85, .92], delay: [.08, .3] },
+];
+// 「第○問」の大きな文字（毎フレーム動かす）
+let bannerT = 9; const bannerEl = document.getElementById('banner');
+function animBanner(dt) {
+  bannerT += dt; const u = bannerT / 1.5;
+  if (u > 1.05) { if (bannerEl.style.opacity !== '0') bannerEl.style.opacity = '0'; return; }
+  const c = clamp(u, 0, 1);
+  const op = c < .14 ? c / .14 : c > .78 ? (1 - c) / .22 : 1;
+  const sc = c < .14 ? 1.6 - .64 * easeInOut(c / .14) : c < .22 ? .96 + .04 * ((c - .14) / .08) : 1 + .06 * ((c - .22) / .78);
+  bannerEl.style.opacity = op.toFixed(3); bannerEl.style.transform = `scale(${sc.toFixed(3)})`;
+}
+function introQuestion() {
+  G.phase = 'intro'; G.wait = 1.55;
+  const Q = QUESTIONS[G.qi], last = G.qi === QUESTIONS.length - 1;
+  document.getElementById('bannerText').textContent = last ? '最終問題' : `第${G.qi + 1}問`;
+  document.getElementById('bannerSub').textContent = last ? `第${G.qi + 1}問` : `${QUESTIONS.length}問中`;
+  bannerT = 0;
+  SFX.intro(); ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = 0; drawVision();
+}
 function startQuestion() {
   G.phase = 'reading'; G.shown = 0; G.acc = 0; G.buzzer = -1; G.locked = new Set(); G.judge = null; G.idleAfterEnd = 0;
   const Q = QUESTIONS[G.qi];
-  G.cpuPlan = [0, 2, 3].map(i => R() < .62 ? { i, at: Math.floor(Q.q.length * (.5 + R() * .5)), delay: .15 + R() * .5, skill: [.75, .7, .8][[0, 2, 3].indexOf(i)] } : null).filter(Boolean);
+  const L = CPU_LV[G.lv], rnd = Math.random, ease = Q.lv === 1 ? -.05 : .05;
+  G.cpuPlan = [0, 2, 3].map((i, k) => rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + ease + rnd() * L.span, .25, 1)),
+    delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill[k] - (Q.lv === 2 ? .05 : 0) } : null).filter(Boolean);
+  G.ANS_LIMIT = Math.max(10, 3 + Q.y.length * 1.3);
   ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = .7;
   crowd.focus.set(0, 1.4, -9.6); drawVision();
 }
@@ -722,9 +886,9 @@ function buzz(i) {
   const S = seats[i];
   SFX.buzz(); S.capMat.emissiveIntensity = 3; S.lamp.material.emissiveIntensity = 4; S.plate.material.emissiveIntensity = 0;
   if (i !== ME) { S.pressT = 0; S.pressed = false; }
-  crowd.focus.copy(S.g.position).setY(1.2); crowd.gasp = .6; SFX.swell(.09, 1);
+  crowd.focus.copy(S.g.position).setY(1.2); crowd.gasp = .6; SFX.swell(.035, .8);
   ui.hint.style.opacity = 0;
-  if (i === ME) showChoices();
+  if (i === ME) { showChoices(); G.st.buzzAt = Math.min(1, G.shown / QUESTIONS[G.qi].q.length); }
   drawVision();
   return true;
 }
@@ -747,8 +911,9 @@ function judge(ok) {
   const i = G.buzzer, S = seats[i];
   G.phase = 'judge'; G.judge = { ok, i, t: 0 };
   S.capMat.emissiveIntensity = 0; S.lamp.material.emissiveIntensity = 0;
+  if (i === ME) { if (ok) { G.st.ok++; G.st.pos.push(G.st.buzzAt); G.st.best = Math.min(G.st.best, G.st.buzzAt); } else G.st.ng++; }
   if (ok) { G.scores[i] += 10; SFX.correct(); setTimeout(() => SFX.applause(1, 3.2), 250); crowd.clap = 1; }
-  else { G.scores[i] -= 5; G.locked.add(i); SFX.wrong(); crowd.gasp = 1; SFX.swell(.13, 1.5); }
+  else { G.scores[i] -= 5; G.locked.add(i); SFX.wrong(); crowd.gasp = 1; SFX.swell(.06, 1.3); }
   drawVision();
   G.wait = ok ? 3.6 : 2.0;
 }
@@ -762,12 +927,13 @@ function afterJudge() {
 function reveal() { G.phase = 'reveal'; G.wait = 3.2; G.shown = QUESTIONS[G.qi].q.length; }
 function nextQuestion() {
   G.qi++;
-  if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.textContent = 'タップでもう一度'; ui.hint.style.opacity = .8; return; }
-  startQuestion();
+  if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; setTimeout(showResult, 2200); return; }
+  introQuestion();
 }
 function tickGame(dt) {
   const Q = QUESTIONS[G.qi];
-  if (G.phase === 'ready') { G.wait -= dt; if (G.wait <= 0) startQuestion(); }
+  if (G.phase === 'ready') { G.wait -= dt; if (G.wait <= 0) introQuestion(); }
+  else if (G.phase === 'intro') { G.wait -= dt; if (G.wait <= 0) startQuestion(); }
   else if (G.phase === 'reading') {
     if (G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
     else { G.idleAfterEnd += dt; if (G.idleAfterEnd > 5) { reveal(); return; } }
@@ -811,7 +977,7 @@ function drawMonitor(t) {
   g.fillStyle = 'rgba(55,200,255,.16)'; g.fillRect(0, 0, w, 78);
   g.fillStyle = '#37c8ff'; g.fillRect(0, 76, w, 3);
   g.font = `bold 40px ${FONT}`; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillStyle = '#fff';
-  if (G.phase === 'title' || G.phase === 'ready') g.fillText('まもなく開始', 30, 40);
+  if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu') g.fillText('まもなく開始', 30, 40);
   else if (G.phase === 'result') g.fillText('結果発表', 30, 40);
   else g.fillText(`第${G.qi + 1}問`, 30, 40);
   g.textAlign = 'right'; g.fillText(`${G.scores[ME]} 点`, w - 30, 40);
@@ -821,8 +987,10 @@ function drawMonitor(t) {
     const order = [0, 1, 2, 3].sort((a, b) => G.scores[b] - G.scores[a]);
     g.font = `bold 52px ${FONT}`;
     order.forEach((p, k) => { g.fillStyle = p === ME ? '#ffcc33' : '#fff'; g.fillText(`${k + 1}位  ${NAMES[p]}　${G.scores[p]}点`, 60, 170 + k * 92); });
-  } else if (G.phase === 'title' || G.phase === 'ready') {
-    g.font = `bold 50px ${FONT}`; g.fillStyle = '#fff'; g.fillText('早押しクイズ 5問勝負', 40, 200);
+  } else if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' || G.phase === 'intro') {
+    if (G.phase === 'intro') { g.font = `bold 96px ${FONT}`; g.fillStyle = '#ffcc33'; g.textAlign = 'center'; g.fillText(G.qi === QUESTIONS.length - 1 ? '最終問題' : `第${G.qi + 1}問`, w / 2, 250);
+      g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('まもなく出題', w / 2, 360); g.textAlign = 'left'; monTex.needsUpdate = true; return; }
+    g.font = `bold 50px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`早押しクイズ ${QUESTIONS.length || G.n}問勝負`, 40, 200);
     g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('正解 +10点 ／ 誤答 −5点', 40, 280);
     g.fillText('分かったらすぐにボタン！', 40, 340);
   } else {
@@ -860,7 +1028,7 @@ function drawVision() {
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
   g.font = `900 92px ${FONT}`; g.fillText('早押しステージ', w / 2, 120);
   g.font = `bold 40px ${FONT}`; g.fillStyle = '#7fd6ff';
-  g.fillText(G.phase === 'result' ? '結果発表' : G.phase === 'title' || G.phase === 'ready' ? 'まもなく開始' : `第${G.qi + 1}問`, w / 2, 210);
+  g.fillText(G.phase === 'result' ? '結果発表' : G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' ? 'まもなく開始' : `第${G.qi + 1}問`, w / 2, 210);
   const bw = 270;
   for (let i = 0; i < 4; i++) {
     const x = w / 2 + (i - 1.5) * (bw + 24), y = 470, on = G.buzzer === i && G.phase === 'answering';
@@ -876,8 +1044,7 @@ function drawVision() {
 
 /* ============ 入力 ============ */
 function onPress() {
-  if (G.phase === 'title') return;
-  if (G.phase === 'result') { G.qi = 0; G.scores = [0, 0, 0, 0]; ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = 1.5; drawVision(); return; }
+  if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result') return;
   startMyPress();
   if (G.phase === 'reading') buzz(ME);
 }
@@ -888,8 +1055,49 @@ document.getElementById('start').addEventListener('pointerdown', () => {
   try { initAudio(); } catch (e) {}
   document.getElementById('start').style.display = 'none';
   SFX.applause(1, 3.5); crowd.clap = 1;
-  G.phase = 'ready'; G.wait = 3.5; drawVision();
+  openMenu();
 });
+/* ============ ソロ練習のメニューと結果 ============ */
+const LV_NAMES = ['やさしい', 'ふつう', 'つよい'];
+function load(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+G.lv = load('hs_lv', 1); G.n = load('hs_n', 10);
+function segSetup(id, key, prop) {
+  const el = document.getElementById(id);
+  const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === G[prop]));
+  el.querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); G[prop] = +b.dataset.v; save(key, G[prop]); paint(); showBest(); SFX.tick(); }));
+  paint();
+}
+segSetup('optLv', 'hs_lv', 'lv'); segSetup('optN', 'hs_n', 'n');
+function bestKey() { return `hs_best_${G.lv}_${G.n}`; }
+function showBest() { const b = load(bestKey(), null); document.getElementById('bestTxt').textContent = b ? `この設定の自己ベスト：${b.score}点（${b.rank}位）` : 'この設定はまだ記録なし'; }
+function openMenu() {
+  G.phase = 'menu'; document.getElementById('result').style.display = 'none';
+  document.getElementById('menu').style.display = 'flex'; showBest(); ui.qno.textContent = ''; drawVision();
+}
+function startGame() {
+  document.getElementById('menu').style.display = 'none'; document.getElementById('result').style.display = 'none';
+  QUESTIONS = pickQuestions(G.n); G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
+  ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = 1.2; monKey = ''; drawVision();
+}
+function showResult() {
+  const order = [0, 1, 2, 3].sort((a, b) => G.scores[b] - G.scores[a]);
+  const rank = order.filter(p => G.scores[p] > G.scores[ME]).length + 1, st = G.st;
+  document.getElementById('rRank').textContent = `${rank}位`;
+  document.getElementById('rScore').textContent = `${G.scores[ME]}点`;
+  document.getElementById('rOk').textContent = `${st.ok} ／ ${st.ng}`;
+  const avg = st.pos.length ? st.pos.reduce((a, b) => a + b, 0) / st.pos.length : null;
+  document.getElementById('rFast').textContent = avg === null ? '—' : `${Math.round(avg * 100)}%`;
+  document.getElementById('rFirst').textContent = st.best <= 1 ? `${Math.round(st.best * 100)}%` : '—';
+  const prev = load(bestKey(), null), isNew = !prev || G.scores[ME] > prev.score;
+  if (isNew) save(bestKey(), { score: G.scores[ME], rank });
+  const nb = document.getElementById('rNew'), nbOn = isNew && G.scores[ME] > 0;
+  nb.textContent = nbOn ? '自己ベスト更新！' : `相手：${LV_NAMES[G.lv]}・${G.n}問`; nb.style.color = nbOn ? '#ff7a7a' : 'rgba(255,255,255,.55)';
+  document.getElementById('result').style.display = 'flex';
+}
+document.getElementById('goBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', startGame);
+document.getElementById('menuBtn').addEventListener('click', openMenu);
 // 視点は指やマウスでは動かさない。ピンチやダブルタップの拡大も止める
 for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -929,7 +1137,7 @@ function update(dt, t) {
     if (G.buzzer >= 0 && G.buzzer !== i) { const d = seats[G.buzzer].g.position.clone().sub(S.g.position).applyAxisAngle(_up, -S.g.rotation.y);
       hy = clamp(Math.atan2(-d.x, -d.z), -.8, .8); hp = .1; }
     else if (G.phase === 'judge' && G.judge && G.judge.i === i) hp = G.judge.ok ? .05 - Math.sin(G.judge.t * 7) * .08 * Math.max(0, 1 - G.judge.t) : .6;
-    else if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'reveal') hp = .1;
+    else if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'reveal' || G.phase === 'menu' || G.phase === 'intro') hp = .1;
     S.hy = lerp(S.hy || 0, hy + Math.sin(t * .5 + i * 2) * .04, Math.min(1, dt * 6)); S.hp = lerp(S.hp ?? .4, hp, Math.min(1, dt * 5));
     r.reset(); r.placePelvis(S.g.localToWorld(SEAT_PELVIS.clone().add(new THREE.Vector3(0, Math.sin(t * 1.5 + i) * .003, -k * .04)))); r.sit(.1 + k * .1);
     r.look(S.hy, S.hp);
@@ -974,7 +1182,7 @@ function update(dt, t) {
 }
 function frame() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
-  update(dt, t);
+  update(dt, t); animBanner(dt);
   if (useBloom) composer.render(); else renderer.render(scene, camera);
   if (ready) blackCheck(t);
   // 重いときは自動で画質を下げる
