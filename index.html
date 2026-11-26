@@ -22,7 +22,7 @@
     display:flex;justify-content:space-between;pointer-events:none;font-size:13px;opacity:.8;z-index:3}
   #hint{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
     font-size:13px;opacity:.7;pointer-events:none;z-index:3;transition:opacity .4s;white-space:nowrap}
-  #answer{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
+  #answer{position:fixed;left:32%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
     display:none;flex-direction:column;align-items:center;gap:8px;z-index:4}
   #tbar{width:min(520px,80vw);height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
   #tbar i{display:block;height:100%;width:100%;background:#ffcc33}
@@ -71,7 +71,7 @@ const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) ||
 const FONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic","WenQuanYi Zen Hei",sans-serif';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(devicePixelRatio, isMobile ? 1.5 : 2);
+let pixelRatio = Math.min(devicePixelRatio, 2);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -379,7 +379,7 @@ const SEAT_POS = [[-2.3, -3.6], [0, -.6], [2.3, -3.6], [4.2, -6.0]];
 const seats = [];
 
 // モニターの画面（全員で共有）
-const monCanvas = document.createElement('canvas'); monCanvas.width = 1024; monCanvas.height = 608;
+const monCanvas = document.createElement('canvas'); monCanvas.width = 2048; monCanvas.height = 1216; // 2倍の解像度で文字をくっきり
 const monTex = new THREE.CanvasTexture(monCanvas); monTex.colorSpace = THREE.SRGBColorSpace;
 monTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
@@ -410,14 +410,14 @@ function makeSeat(i) {
   box(.48, .07, .46, M.fabric, 0, .47, .62, g); box(.46, .52, .07, M.fabric, 0, .8, .86, g);
   cyl(.03, .03, .4, M.metal, 0, .22, .62, g, 12); cyl(.25, .25, .02, M.metal, 0, .02, .62, g, 24);
   // モニター
-  const mon = new THREE.Group(); mon.position.set(-.08, .9, -.29); mon.rotation.x = -.28; g.add(mon);
+  const mon = new THREE.Group(); mon.position.set(-.08, .95, -.29); mon.rotation.x = -.28; g.add(mon);
   rbox(.41, .255, .026, .008, M.blackPlastic, 0, 0, 0, mon);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.39, .2306), new THREE.MeshBasicMaterial({ map: monTex, toneMapped: true }));
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(.39, .2306), new THREE.MeshBasicMaterial({ map: monTex, toneMapped: false, color: 0xdcdcdc }));
   screen.position.z = .0145; mon.add(screen);
-  box(.04, .008, .004, led(0x37c8ff, 1.5), .17, -.12, .0135, mon, false);
-  cyl(.016, .02, .12, M.darkMetal, -.08, .82, -.31, g, 16); rbox(.18, .014, .13, .005, M.darkMetal, -.08, .772, -.31, g);
+  box(.03, .005, .004, led(0x37c8ff, 1.2), .17, -.1225, .0135, mon, false);
+  cyl(.016, .02, .17, M.darkMetal, -.08, .845, -.31, g, 16); rbox(.18, .014, .13, .005, M.darkMetal, -.08, .772, -.31, g);
   // 早押しボタン
-  const bz = new THREE.Group(); bz.position.set(.3, .765, -.13); g.add(bz); S.bz = bz;
+  const bz = new THREE.Group(); bz.position.set(.13, .765, -.06); g.add(bz); S.bz = bz;
   rbox(.14, .05, .14, .012, M.blackPlastic, 0, .025, 0, bz);
   cyl(.058, .062, .014, M.metal, 0, .055, 0, bz, 40);
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) cyl(.006, .006, .004, M.metal, sx * .055, .052, sz * .055, bz, 10);
@@ -427,10 +427,10 @@ function makeSeat(i) {
   const dome = new THREE.Mesh(new THREE.SphereGeometry(.047, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
   dome.scale.y = .42; dome.position.y = .022; dome.castShadow = true; cap.add(dome);
   // ケーブル
-  const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(.3, .78, -.06), new THREE.Vector3(.33, .772, .08), new THREE.Vector3(.45, .772, .2), new THREE.Vector3(.5, .76, .32)]);
+  const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(.13, .78, .01), new THREE.Vector3(.15, .772, .12), new THREE.Vector3(.3, .772, .22), new THREE.Vector3(.5, .76, .32)]);
   const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, .005, 6), M.blackPlastic); cable.castShadow = true; g.add(cable);
-  S.handRest = { L: new THREE.Vector3(-.25, .772, -.07), R: new THREE.Vector3(.17, .772, -.05) };
-  S.pressPos = new THREE.Vector3(.3, .862, -.125);
+  S.handRest = { L: new THREE.Vector3(-.26, .772, -.08), R: new THREE.Vector3(.31, .772, -.07) };
+  S.pressPos = new THREE.Vector3(.13, .862, -.055);
   S.pressT = -1; S.pressed = false;
   seats.push(S); return S;
 }
@@ -779,8 +779,13 @@ function wrapText(g, text, maxW) {
   if (line) lines.push(line); return lines;
 }
 let blink = 0;
+let monKey = '';
 function drawMonitor(t) {
-  const g = monCanvas.getContext('2d'), w = monCanvas.width, h = monCanvas.height;
+  const blinkOn = Math.floor(t * 3) % 2 === 0;
+  const key = [G.phase, G.qi, G.shown, G.ansPos, G.cpuAns, G.scores.join(), G.locked.size, G.buzzer, G.judge && G.judge.ok, blinkOn].join('|');
+  if (key === monKey) return; monKey = key; // 変化があった時だけ描き直す
+  const g = monCanvas.getContext('2d'), w = 1024, h = 608;
+  g.setTransform(2, 0, 0, 2, 0, 0);
   const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#0d1630'); grd.addColorStop(1, '#070b18');
   g.fillStyle = grd; g.fillRect(0, 0, w, h);
   // ヘッダー
@@ -802,11 +807,11 @@ function drawMonitor(t) {
     g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('正解 +10点 ／ 誤答 −5点', 40, 280);
     g.fillText('分かったらすぐにボタン！', 40, 340);
   } else {
-    g.font = `bold 48px ${FONT}`; g.fillStyle = '#fff';
+    g.font = `bold 54px ${FONT}`; g.fillStyle = '#fff';
     const lines = wrapText(g, Q.q.slice(0, G.shown), w - 80);
-    lines.forEach((l, k) => g.fillText(l, 40, 140 + k * 66));
-    if (G.phase === 'reading' && G.shown < Q.q.length && Math.floor(t * 3) % 2 === 0) {
-      const last = lines[lines.length - 1] || ''; g.fillStyle = '#37c8ff'; g.fillRect(44 + g.measureText(last).width, 116 + (Math.max(lines.length, 1) - 1) * 66, 6, 48); }
+    lines.forEach((l, k) => g.fillText(l, 40, 140 + k * 72));
+    if (G.phase === 'reading' && G.shown < Q.q.length && blinkOn) {
+      const last = lines[lines.length - 1] || ''; g.fillStyle = '#37c8ff'; g.fillRect(44 + g.measureText(last).width, 113 + (Math.max(lines.length, 1) - 1) * 72, 6, 54); }
     // 下の帯
     const by = h - 150;
     if (G.phase === 'answering') {
@@ -826,8 +831,6 @@ function drawMonitor(t) {
       if (ok || G.phase === 'reveal') g.fillText(`${Q.a}（${Q.y}）`, 30, by + 110);
     } else if (G.locked.has(ME)) { g.fillStyle = 'rgba(40,90,255,.5)'; g.fillRect(0, by, w, 150); g.font = `bold 38px ${FONT}`; g.fillStyle = '#fff'; g.fillText('この問題はお休み中', 30, by + 75); }
   }
-  // 走査線
-  g.fillStyle = 'rgba(0,0,0,.06)'; for (let y = 0; y < h; y += 4) g.fillRect(0, y, w, 1);
   monTex.needsUpdate = true;
 }
 function drawVision() {
@@ -868,11 +871,13 @@ document.getElementById('start').addEventListener('pointerdown', () => {
   SFX.applause(1, 3.5); crowd.clap = 1;
   G.phase = 'ready'; G.wait = 3.5; drawVision();
 });
-let mouseX = 0, mouseY = 0;
-addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { mouseX = e.clientX / innerWidth - .5; mouseY = e.clientY / innerHeight - .5; } });
+// 視点は指やマウスでは動かさない。ピンチやダブルタップの拡大も止める
+for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
 /* ============ 毎フレームの更新 ============ */
 const clock = new THREE.Clock();
+let zoomK = 0; const MON_PITCH = -.28, MON_N = new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), MON_C = new THREE.Vector3(-.08, .95, -.29).addScaledVector(new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), .0145);
 let yaw = 0, pitch = -.3, fpsAcc = 0, fpsN = 0, fpsChecked = false, ready = false;
 function update(dt, t) {
   tickGame(dt);
@@ -938,10 +943,17 @@ function update(dt, t) {
   let wantPitch = (G.phase === 'reading' || G.phase === 'answering') ? -.3 : -.16, wantYaw = 0;
   if (G.buzzer >= 0 && G.buzzer !== ME && G.phase !== 'reading') { const d = seats[G.buzzer].g.position.clone().sub(me.g.position).applyAxisAngle(_up, -me.g.rotation.y);
     wantYaw = Math.atan2(-d.x, -d.z) * .3; wantPitch = -.22; }
-  wantYaw += -mouseX * .25; wantPitch += -mouseY * .12;
   yaw = lerp(yaw, wantYaw, Math.min(1, dt * 2.2)); pitch = lerp(pitch, wantPitch, Math.min(1, dt * 2.2));
-  camera.rotation.set(pitch + Math.sin(t * 1.6) * .003 + lean * .25, yaw + Math.sin(t * .37) * .004, 0);
-  camera.position.set(CAM_BASE.x, CAM_BASE.y + Math.sin(t * 1.6) * .002 + lean * .2, CAM_BASE.z + lean * .55);
+  // 問題を読んでいる間はモニターへズーム（入るときはゆっくり、出るときは素早く）
+  const zoomWant = G.phase === 'reading' ? 1 : 0;
+  zoomK = zoomWant > zoomK ? Math.min(1, zoomK + dt / .9) : Math.max(0, zoomK - dt / .28);
+  const ez = easeInOut(zoomK);
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const dist = Math.max((.39 / .92 / 2) / (tanH * camera.aspect), (.2306 / .9 / 2) / tanH);
+  const zoomPos = MON_C.clone().addScaledVector(MON_N, dist);
+  const basePos = new THREE.Vector3(CAM_BASE.x, CAM_BASE.y + Math.sin(t * 1.6) * .002 + lean * .2, CAM_BASE.z + lean * .55);
+  camera.position.lerpVectors(basePos, zoomPos, ez);
+  camera.rotation.set(lerp(pitch + Math.sin(t * 1.6) * .003 + lean * .25, MON_PITCH, ez), lerp(yaw + Math.sin(t * .37) * .004, 0, ez), 0);
   // 光の柱をゆっくり動かす
   beams.forEach((b, k) => b.material.uniforms.op.value = .07 + Math.sin(t * .6 + k) * .02 + (G.judge && G.judge.ok && G.judge.t < 1.5 ? .06 : 0));
   ring.material.emissiveIntensity = 2.2 + Math.sin(t * 2) * .5;
