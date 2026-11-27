@@ -22,6 +22,7 @@
 //   {t:'buzzed', seat, shown}                だれかが一番に押した（判定はサーバー）
 //   {t:'char', seat, pos, ch}                正しい1文字（pos=何文字目まで正解）
 //   {t:'judge', seat, ok}                    正解／不正解
+//   {t:'late', by}                           自分も押したけど押し負けた（by=何ミリ秒おそかったか）
 //   {t:'reveal'}                             答えを見せる
 //   {t:'end', scores}                        試合終了
 // ──────────────────────────────────────────────────────
@@ -67,7 +68,8 @@ export function rankStrength(rp) { return .1 + rankIdx(rp) / MAX_IDX * .65; }
 export function ansLimit(y) { return Math.max(10, 3 + y.length * 1.3); }   // 解答の制限時間（秒）
 export const CHARS_PER_SEC = 8;
 // 進行の待ち時間（秒）。ゲームとサーバーで同じ値を使う
-export const T = { ready: 1.2, intro: 1.3, judgeOk: 2.0, judgeNg: 1.6, revealAfterOk: 1.0, reveal: 2.4, idle: 5 };
+// vs=全員のプロフィール、fly=会場を上から映してから自分の席へ。ready はその合計
+export const T = { vs: 2.6, fly: 2.4, ready: 5.0, intro: 1.3, judgeOk: 2.0, judgeNg: 1.6, revealAfterOk: 1.0, reveal: 2.4, idle: 5 };
 // CPUがまちがえるときに書く文字（正解の文字とちがうもの）
 const KANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわんがぎぐげござじずぜぞだでどばびぶべぼ';
 export function wrongChar(c) { if (/[A-Z]/.test(c)) { let z; do { z = String.fromCharCode(65 + Math.floor(Math.random() * 26)); } while (z === c); return z; } let x; do { x = KANA[Math.floor(Math.random() * KANA.length)]; } while (x === c); return /[0-9]/.test(c) ? String((+c + 1 + Math.floor(Math.random() * 8)) % 10) : x; }

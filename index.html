@@ -72,6 +72,26 @@
     background:linear-gradient(#ff4b4b,#c8141c);border-color:#ff8080}
   .btn.sec{background:transparent}
   .best{font-size:12px;opacity:.6;margin-top:10px}
+  #vs{position:fixed;inset:0;z-index:7;display:none;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,2.5vh,18px);
+    background:radial-gradient(ellipse at center,rgba(8,12,30,.5),rgba(0,0,0,.82));transition:opacity .45s;pointer-events:none;padding:12px}
+  #vs h3{margin:0;font-size:clamp(16px,3.4vh,26px);letter-spacing:.3em;color:#ffcc33;text-shadow:0 2px 8px #000}
+  #vs .row{display:flex;gap:clamp(6px,1.8vw,18px);justify-content:center;flex-wrap:wrap}
+  #vs .pc{width:clamp(96px,19vw,168px);padding:clamp(6px,1.6vh,14px) 6px;border-radius:14px;background:rgba(14,18,34,.85);border:2px solid;
+    text-align:center;opacity:0;animation:pcIn .5s cubic-bezier(.2,1.4,.4,1) forwards}
+  #vs .pc .emb svg{width:clamp(40px,13vh,84px);height:auto;display:block;margin:0 auto}
+  #vs .pc b{display:block;font-size:clamp(13px,2.8vh,19px);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #vs .pc span{display:block;font-size:clamp(11px,2.2vh,14px);font-weight:700;margin-top:2px}
+  #vs .pc.mine{box-shadow:0 0 22px rgba(255,204,51,.6)}
+  #vs .pc i{display:block;font-style:normal;font-size:10px;opacity:.7;letter-spacing:.1em}
+  @keyframes pcIn{0%{opacity:0;transform:translateY(26px) scale(.85)}100%{opacity:1;transform:none}}
+  #lost{position:fixed;left:50%;top:26%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none;opacity:0;white-space:nowrap}
+  #lost small{display:block;font-size:clamp(15px,3.4vh,24px);font-weight:900;color:#ff9a9a;letter-spacing:.2em;text-shadow:0 2px 6px #000}
+  #lost b{display:block;font-size:clamp(46px,13vh,104px);font-weight:900;color:#fff;font-variant-numeric:tabular-nums;
+    text-shadow:0 4px 0 rgba(0,0,0,.6),0 0 26px rgba(255,80,80,.7)}
+  #lost b em{font-style:normal;font-size:.45em;margin-left:.1em}
+  #lost.on{animation:lostIn 2.6s ease-out forwards}
+  @keyframes lostIn{0%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}10%{opacity:1;transform:translate(-50%,-50%) scale(.96)}16%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.04)}}
+  .rpnext{font-size:13px;opacity:.85;margin-top:6px}
   #banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:6;opacity:0}
   #banner div{font-size:clamp(56px,13vw,120px);font-weight:900;letter-spacing:.06em;
     background:linear-gradient(#fff6c8,#ffcc33 55%,#e59a00);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -151,6 +171,8 @@
 <div id="next"></div>
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
 <div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
+<div id="vs"><h3 id="vsTitle"></h3><div class="row" id="vsRow"></div></div>
+<div id="lost"><small>押し負け…</small><b id="lostNum"></b></div>
 <div class="panel" id="home"><div class="card">
   <h2>クイズアリーナ</h2>
   <div class="me">
@@ -922,6 +944,7 @@ function animBanner(dt) {
 }
 function introQuestion() {
   G.phase = 'intro'; G.wait = T.intro;
+  hideVs(); if (camIntro < T.vs + T.fly - .9) camIntro = T.vs + T.fly - .9; // サーバーの合図が早いときは急いで席へ
   const Q = QUESTIONS[G.qi], last = G.qi === QUESTIONS.length - 1;
   document.getElementById('bannerText').textContent = last ? '最終問題' : `第${G.qi + 1}問`;
   document.getElementById('bannerSub').textContent = last ? `第${G.qi + 1}問` : `${QUESTIONS.length}問中`;
@@ -944,6 +967,7 @@ function startQuestion() {
 function buzz(i) {
   if (G.phase !== 'reading' || G.locked.has(i)) return false;
   G.phase = 'answering'; G.buzzer = i; G.ansPos = 0; G.ansT = 0; G.cpuAns = ''; G.mySaid = '';
+  G.buzzWall = performance.now(); G.lostShown = false;
   const S = seats[i];
   SFX.buzz(); S.capMat.emissiveIntensity = 3; S.lamp.material.emissiveIntensity = 4; S.plate.material.emissiveIntensity = 0;
   if (i !== ME) { S.pressT = 0; S.pressed = false; }
@@ -1120,6 +1144,8 @@ function drawVision() {
 function onPress() {
   if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result') return;
   startMyPress();
+  // ほかの人に一瞬先をこされた：何秒差だったかを出す
+  if (G.phase === 'answering' && G.buzzer !== ME && !G.locked.has(ME)) { const by = performance.now() - G.buzzWall; if (by < 1000) showLost(by); }
   if (G.online) { // 押した瞬間に問題を止めて、サーバーには「どこまで見えていたか」も送る
     if (G.phase === 'reading' && !G.locked.has(ME) && !G.pendingBuzz) {
       G.pendingBuzz = true; G.pendingT = 0; net.send({ t: 'buzz', shown: G.shown }); SFX.tick();
@@ -1158,6 +1184,12 @@ function rpText(rp) {
   const i = rankIdx(rp);
   if (i >= MAX_IDX) return `${rankName(rp)}・${rp - MAX_IDX * RP_PER} pt`;
   return `${rankName(rp)}・あと ${RP_PER - (rp % RP_PER)} pt で ${rankName(rp + RP_PER - (rp % RP_PER))}`;
+}
+// 結果画面の「次のランクまで あと○pt」
+function nextHTML(rp) {
+  if (rankIdx(rp) >= MAX_IDX) return `<div class="rpnext">最高ランク！（${rp - MAX_IDX * RP_PER} pt）</div>`;
+  const nx = rp + RP_PER - (rp % RP_PER);
+  return `<div class="rpbar" style="max-width:220px;margin:8px auto 4px"><i style="width:${rp % RP_PER}%"></i></div><div class="rpnext">次の <b style="color:${TIER_COLORS[tierOf(nx)]}">${rankName(nx)}</b> まで あと <b>${nx - rp} pt</b></div>`;
 }
 function rankColor(rp) { return TIER_COLORS[tierOf(rp)]; }
 
@@ -1320,6 +1352,7 @@ net.on('char', m => {
 });
 net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); if (!m.ok && m.ch && cli(m.seat) !== ME) G.cpuAns += m.ch; G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
 net.on('reveal', () => { if (G.online) reveal(); });
+net.on('late', m => { if (G.online && G.phase === 'answering' && G.buzzer !== ME) showLost(m.by); });
 net.on('end', m => {
   if (!G.online) return;
   m.scores.forEach((v, s) => G.scores[cli(s)] = v);
@@ -1335,8 +1368,30 @@ net.on('close', () => {
 function beginMatch(qs) {
   show(null); QUESTIONS = qs; G.online = false; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
   ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = T.ready; G.mySaid = ''; monKey = ''; drawVision();
+  showVs();
 }
-const RP_GAIN = [30, 12, -6, -18]; // 1位〜4位
+// 試合開始：全員のプロフィール → 会場を上から → 自分の席へ
+let camIntro = 99, vsOn = false;
+function showVs() {
+  const el = $('vs');
+  $('vsTitle').textContent = { solo: 'ひとりで練習', rank: 'ランクマッチ', room: 'ルーム戦' }[G.mode] || '';
+  $('vsRow').innerHTML = G.players.map((p, i) => {
+    const sub = G.mode === 'solo' && i !== ME ? `CPU・${LV_NAMES[G.lv]}` : rankName(p.rp);
+    return `<div class="pc${i === ME ? ' mine' : ''}" style="border-color:${rankColor(p.rp)};animation-delay:${(.15 + i * .18).toFixed(2)}s">
+      <i>${i === ME ? 'あなた' : '&nbsp;'}</i>${embI(p.rp, 84)}<b>${esc(p.name)}</b><span style="color:${rankColor(p.rp)}">${sub}</span></div>`;
+  }).join('');
+  el.style.display = 'flex'; el.style.opacity = 1; vsOn = true; camIntro = 0; SFX.swell(.05, 1.2);
+}
+function hideVs() { if (!vsOn) return; vsOn = false; const el = $('vs'); el.style.opacity = 0; setTimeout(() => { if (!vsOn) el.style.display = 'none'; }, 460); }
+const esc = s => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
+// 押し負けたときの秒差
+function showLost(ms) {
+  if (G.lostShown) return; G.lostShown = true;
+  const s = Math.max(0, ms) / 1000;
+  $('lostNum').innerHTML = `${s.toFixed(4)}<em>秒差</em>`;
+  const el = $('lost'); el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+}
+const RP_GAIN = [40, 22, 6, -10]; // 1位〜4位（上がりやすく）
 function finishMatch() {
   const myScore = G.scores[ME];
   const place = G.scores.filter(v => v > myScore).length + 1, st = G.st;
@@ -1357,7 +1412,7 @@ function finishMatch() {
     if (tierOf(ME_DATA.rp) === 0 && d < 0) d = 0; // ビギナーは下がらない
     const before = ME_DATA.rp; ME_DATA.rp = Math.max(0, ME_DATA.rp + d); ME_DATA.peak = Math.max(ME_DATA.peak, ME_DATA.rp);
     const up = rankIdx(ME_DATA.rp) > rankIdx(before), down = rankIdx(ME_DATA.rp) < rankIdx(before);
-    rpEl.innerHTML = `${embI(ME_DATA.rp, 48)}<br><span style="color:${d >= 0 ? '#7dffa0' : '#ff8a8a'}">${d >= 0 ? '+' : ''}${d} pt</span>　${rankName(ME_DATA.rp)}`;
+    rpEl.innerHTML = `${embI(ME_DATA.rp, 48)}<br><span style="color:${d >= 0 ? '#7dffa0' : '#ff8a8a'}">${d >= 0 ? '+' : ''}${d} pt</span>　${rankName(ME_DATA.rp)}` + nextHTML(ME_DATA.rp);
     if (up) { nb.textContent = `ランクアップ！ ${rankName(ME_DATA.rp)}`; nb.style.color = '#ffcc33'; SFX.correct(); }
     else if (down) { nb.textContent = `${rankName(ME_DATA.rp)} に下がりました`; nb.style.color = '#8fb0ff'; }
     STATS.hist.unshift({ d: Date.now(), place, score: myScore, rp: ME_DATA.rp, delta: d }); STATS.hist = STATS.hist.slice(0, 20);
@@ -1367,6 +1422,7 @@ function finishMatch() {
     if (isNew && myScore > 0) { nb.textContent = '自己ベスト更新！'; nb.style.color = '#ff7a7a'; }
     else nb.textContent = `相手：${LV_NAMES[G.lv]}・${G.n}問`;
   } else nb.textContent = `部屋 ${room ? room.code : ''}`;
+  if (G.mode !== 'rank') rpEl.innerHTML = `<div class="rpnext">いまのランク：${rankName(ME_DATA.rp)}（ランクマッチで上がります）</div>` + nextHTML(ME_DATA.rp);
   saveMe(); show('result');
 }
 $('againBtn').addEventListener('click', () => { ({ solo: startSolo, rank: openMatch, room: () => { if (room && room.online) { G.phase = 'menu'; show('room'); showLobby(); } else $('rStart').click(); } })[G.mode](); });
@@ -1391,6 +1447,7 @@ document.addEventListener('touchmove', e => { if (!(e.target.closest && e.target
 /* ============ 毎フレームの更新 ============ */
 const clock = new THREE.Clock();
 let zoomK = 0; const ZOOM_PITCH = -.5, ZOOM_F = new THREE.Vector3(0, Math.sin(-.5), -Math.cos(-.5)), ZOOM_T = new THREE.Vector3(-.03, .905, -.17); const MON_PITCH = -.28, MON_N = new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), MON_C = new THREE.Vector3(-.08, .95, -.29).addScaledVector(new THREE.Vector3(0, Math.sin(.28), Math.cos(.28)), .0145);
+const OV_C = new THREE.Vector3(.7, .4, -5), OV_P = new THREE.Vector3(), OV_M = new THREE.Matrix4(), OV_Q = new THREE.Quaternion(), OV_Q2 = new THREE.Quaternion();
 let yaw = 0, pitch = -.3, fpsAcc = 0, fpsN = 0, fpsChecked = false, ready = false;
 function update(dt, t) {
   tickGame(dt);
@@ -1403,7 +1460,7 @@ function update(dt, t) {
   if (me.rig) {
     const r = me.rig, g = me.g;
     r.reset(); r.placePelvis(g.localToWorld(myPelvis.clone().add(new THREE.Vector3(0, 0, lean * .5)))); r.sit(.06 - lean * 1.2);
-    r.b['Head'].scale.setScalar(.001);
+    r.b['Head'].scale.setScalar(camIntro < T.vs + T.fly * .8 ? 1 : .001); // 上から映すときは頭も見せる
     const wl = MY_WRIST.L.clone(); wl.y += Math.sin(t * 1.1 + 2) * .002;
     const wr = MY_WRIST.R.clone().lerp(PRESS_WRIST, pk); wr.y += (myPress.arc || 0) * (pk > 0 ? 1 : 0) + Math.sin(t * 1.1) * .002;
     r.arm('L', g.localToWorld(wl), { yaw: .3, curl: .38, out: .55 });
@@ -1461,6 +1518,18 @@ function update(dt, t) {
   const basePos = new THREE.Vector3(CAM_BASE.x, CAM_BASE.y + Math.sin(t * 1.6) * .002 + lean * .2, CAM_BASE.z + lean * .55);
   camera.position.lerpVectors(basePos, zoomPos, ez);
   camera.rotation.set(lerp(pitch + Math.sin(t * 1.6) * .003 + lean * .25, ZOOM_PITCH + lean * .25 * ez, ez), lerp(yaw + Math.sin(t * .37) * .004, 0, ez), 0);
+  // 試合開始の演出：会場を上からゆっくり回って映し、そのまま自分の席へ降りてくる
+  if (camIntro < T.vs + T.fly) {
+    camIntro += dt; if (vsOn && camIntro >= T.vs) hideVs();
+    const u = camIntro, k = easeInOut(clamp((u - T.vs - T.fly * .3) / (T.fly * .7), 0, 1));
+    if (k < 1) {
+      const a = -.62 + u * .085;
+      OV_P.set(OV_C.x + Math.sin(a) * 7.2, 7.6 - u * .45, OV_C.z + Math.cos(a) * 7.2);
+      OV_M.lookAt(OV_P, OV_C, _up); OV_Q.setFromRotationMatrix(OV_M);
+      me.g.updateMatrixWorld(); const lq = me.g.getWorldQuaternion(OV_Q2).invert().multiply(OV_Q), lp = me.g.worldToLocal(OV_P.clone());
+      camera.position.lerpVectors(lp, camera.position.clone(), k); camera.quaternion.slerpQuaternions(lq, camera.quaternion.clone(), k);
+    }
+  }
   // 光の柱をゆっくり動かす
   beams.forEach((b, k) => b.material.uniforms.op.value = .07 + Math.sin(t * .6 + k) * .02 + (G.judge && G.judge.ok && G.judge.t < 1.5 ? .06 : 0));
   ring.material.emissiveIntensity = 2.2 + Math.sin(t * 2) * .5;
@@ -1533,7 +1602,7 @@ function showProg() { document.getElementById('load').textContent = `会場を�
     ready = true; document.getElementById('load').textContent = '準備できました';
   } catch (e) { console.error(e); document.getElementById('load').textContent = '読み込みに失敗しました。ページを開き直してください'; }
 })();
-window.__G = G; window.__onPress = onPress; window.__QS = () => QUESTIONS;
+window.__G = G; window.__onPress = onPress; window.__QS = () => QUESTIONS; window.__ci = () => camIntro;
 let freeCam = false; window.__view = (p, t) => { freeCam = true; scene.attach(camera); camera.position.set(...p); camera.lookAt(...t); };
 frame();
 </script>

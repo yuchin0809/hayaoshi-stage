@@ -207,7 +207,14 @@ class Game {
     }
   }
   buzz(i, seen) {
+    // 一番ではなかった人には「何秒差で負けたか」を返す
+    if (this.phase === 'answering' && i >= 0 && i !== this.buzzer && !this.locked.has(i) && this.seats[i].cl && this.lateSent && !this.lateSent.has(i)) {
+      const by = performance.now() - this.buzzWall;
+      if (by >= 0 && by < 1500) { this.lateSent.add(i); this.hub.send(this.seats[i].cl, { t: 'late', by }); }
+      return;
+    }
     if (this.phase !== 'reading' || this.locked.has(i) || i < 0) return;
+    this.buzzWall = performance.now(); this.lateSent = new Set();
     // 押した人の画面で見えていたところで問題を止める（通信の遅れで先に進まないように）
     const now = this.shown();
     this.base = Number.isFinite(seen) ? Math.max(this.base, Math.min(now, Math.floor(seen))) : now; this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
