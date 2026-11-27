@@ -8,8 +8,9 @@
 //   {t:'find'} / {t:'cancel'}        ランクマッチを探す／やめる
 //   {t:'create', n}                  ルームを作る（n=問題数）
 //   {t:'join', code}                 ルームに入る
-//   {t:'addbot'} / {t:'start', n, qd}  ルームの主：CPUを入れる／スタート（qd=むずかしさ -1:おまかせ 0〜4）
+//   {t:'addbot'} / {t:'kickbot'} / {t:'start', n, qd}  ルームの主：CPUを入れる／スタート（qd=むずかしさ -1:おまかせ 0〜4）
 //   {t:'leave'}                      ルームから出る
+//   ルームの start には style:'buzz'(早押し)|'all'(みんなで回答), lim:制限時間(秒) もつける
 //   {t:'buzz'}                       ボタンを押した
 //   {t:'char', ch}                   解答の1文字
 // サーバー → こちら
@@ -25,6 +26,8 @@
 //   {t:'late', by}                           自分も押したけど押し負けた（by=何ミリ秒おそかったか）
 //   {t:'reveal'}                             答えを見せる
 //   {t:'end', scores}                        試合終了
+//   みんなで回答モード: {t:'mine', pos, ok}（自分の入力の結果 ok=true正解/false不正解/null続き）
+//                       {t:'done', seat}（だれかが答え終わった） {t:'allEnd', oks, scores}（時間切れ・全員終わり）
 // ──────────────────────────────────────────────────────
 
 export const TIERS = ['ビギナー', 'ブロンズ', 'シルバー', 'ゴールド', 'マスター'];
@@ -43,7 +46,15 @@ export function searchRange(tier, sec) {
   const w = sec < 10 ? 0 : sec < 20 ? 1 : TIERS.length;
   return [Math.max(0, tier - w), Math.min(TIERS.length - 1, tier + w)];
 }
-export const BOT_FILL_SEC = 25;          // これだけ待っても4人そろわなければCPUで埋める
+export const BOT_FILL_SEC = 25;
+export const MAX_ROOM = 15;            // ルーム戦は最大15人
+export const ALL_LIMS = [10, 20, 30];  // みんなで回答モードの制限時間（秒）
+// みんなで回答モードのCPU：答えるか・正解するか・何秒で答え終わるか
+export function botAllPlan(L, x, Q, lim) {
+  const tries = Math.random() < Math.min(.97, L.prob + .3), ok = Math.random() < L.skill;
+  const at = Q.q.length / (5 + 9 * x) + Q.y.length * (.45 + Math.random() * .35) + Math.random() * 2.5;
+  return { at: tries ? at : lim + 99, ok };
+}          // これだけ待っても4人そろわなければCPUで埋める
 
 // ランク帯ごとの「問題レベルの混ぜ方」（%）。レベル: 1かんたん 2ふつう 3ややむずかしい 4むずかしい 5難問 6超難問
 export const LV_MIX = [
@@ -64,6 +75,8 @@ export function botParams(st) {
   const x = clamp(st, 0, 1);
   return { prob: .35 + .55 * x, from: .8 - .5 * x, span: .3 + .15 * x, skill: .55 + .37 * x, delay: [.4 - .32 * x, .75 - .45 * x] };
 }
+// CPUが押す位置（問題の何文字目か）。全部読み終わってから押すことはしない
+export function botBuzzAt(len, L) { return Math.floor(len * clamp(L.from + Math.random() * L.span, .25, .9)); }
 export function rankStrength(rp) { return .1 + rankIdx(rp) / MAX_IDX * .65; }
 export function ansLimit(y) { return Math.max(10, 3 + y.length * 1.3); }   // 解答の制限時間（秒）
 export const CHARS_PER_SEC = 8;
@@ -143,7 +156,7 @@ export class CloudNet {
   createRoom(me, n) { return this.connect(me).then(() => this.send({ t: 'create', n })); }
   joinRoom(me, code) { return this.connect(me).then(() => this.send({ t: 'join', code })); }
   addBot() { this.send({ t: 'addbot' }); }
-  startRoom(n, qd) { this.send({ t: 'start', n, qd }); }
+  startRoom(n, qd, style, lim) { this.send({ t: 'start', n, qd, style, lim }); }
   leaveRoom() { this.send({ t: 'leave' }); }
 }
 

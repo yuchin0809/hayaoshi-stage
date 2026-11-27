@@ -83,6 +83,10 @@
   #vs .pc span{display:block;font-size:clamp(11px,2.2vh,14px);font-weight:700;margin-top:2px}
   #vs .pc.mine{box-shadow:0 0 22px rgba(255,204,51,.6)}
   #vs .pc i{display:block;font-style:normal;font-size:10px;opacity:.7;letter-spacing:.1em}
+  #vs .row.many{max-width:min(96vw,980px);gap:6px}
+  #vs .many .pc{width:clamp(70px,12vw,118px);padding:4px 3px;border-radius:10px}
+  #vs .many .pc .emb svg{width:clamp(24px,7vh,44px)}
+  #vs .many .pc b{font-size:clamp(10px,2.2vh,14px)} #vs .many .pc span{font-size:10px} #vs .many .pc i{font-size:9px}
   @keyframes pcIn{0%{opacity:0;transform:translateY(26px) scale(.85)}100%{opacity:1;transform:none}}
   #lost{position:fixed;left:50%;top:26%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none;opacity:0;white-space:nowrap}
   #lost small{display:block;font-size:clamp(15px,3.4vh,24px);font-weight:900;color:#ff9a9a;letter-spacing:.2em;text-shadow:0 2px 6px #000}
@@ -122,7 +126,7 @@
   .back{display:block;margin:14px auto 0;background:none;border:0;color:#9fb3d9;font:inherit;font-size:14px}
   .searching{margin-top:10px;font-size:15px;animation:pulse 1.4s ease-in-out infinite}
   .mtime{font-size:28px;font-weight:800;margin:4px 0}
-  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;margin-top:10px}
   .slot{border-radius:12px;padding:8px 2px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.2);min-height:58px;font-size:12px}
   .slot.on{border-style:solid;background:rgba(255,255,255,.1)}
   .slot b{display:block;font-size:14px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -217,12 +221,16 @@
   </div>
   <div id="roomLobby" style="display:none">
     <p class="sub">部屋の番号</p><div class="code" id="rCodeShow"></div>
-    <div class="slots" id="rSlots"></div>
+    <div class="slots" id="rSlots"></div><div class="best" id="rCount"></div>
+    <div class="row"><div class="lab">あそび方</div><div class="seg" id="optRS">
+      <button data-v="0">早押し<small>一番に押した人が答える</small></button><button data-v="1">みんなで回答<small>時間内に正解なら全員得点</small></button></div></div>
+    <div class="row"><div class="lab">制限時間</div><div class="seg" id="optRL">
+      <button data-v="10">10秒</button><button data-v="20">20秒</button><button data-v="30">30秒</button></div></div>
     <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optRQ">
       <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="4">激ムズ</button></div></div>
     <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
       <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
-    <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
+    <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn sec" id="rKick">CPUを減らす</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
     <div class="best" id="rWait" style="display:none">部屋の主がスタートするのを待っています…</div>
     <div class="best">問題は、部屋でいちばん高いランクと低いランクの間から出ます</div>
   </div>
@@ -249,7 +257,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { emblemSVG } from './emblem.js';
-import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, T, BOT_FILL_SEC } from './net.js';
+import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, botBuzzAt, MAX_ROOM, ALL_LIMS, botAllPlan, rankStrength, ansLimit, CHARS_PER_SEC, T, BOT_FILL_SEC } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -257,6 +265,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 /* ============ 基本設定 ============ */
 const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) ||
@@ -577,10 +586,13 @@ function poseArms(h, handLPos, handRPos, leanZ = 0) {
 }
 
 /* ============ 出場者の席 ============ */
-const NAMES = ['ハルト', 'あなた', 'ミサキ', 'ケンジ'];
+const NAMES = ['ハルト', 'あなた', 'ミサキ', 'ケンジ', ...Array(11).fill('')];
 const ME = 1;
 // 自分の席が一番うしろ。ほかの3人が視界に入るよう、扇形に配置
 const SEAT_POS = [[-2.3, -3.6], [0, -.6], [2.3, -3.6], [4.2, -6.0]];
+// ルーム戦で5人以上のときの席（司会者を中心に、ほかの人と重ならず、自分からモニターが隠れない位置）
+for (const [r, a] of [[4.3, -1.05], [4.3, -.55], [4.3, .45], [4.3, 1.15], [6.0, -.85], [6.0, -1.35], [6.0, 1.35], [7.6, -.7], [7.6, .62], [7.6, -1.1], [7.6, 1.1]])
+  SEAT_POS.push([+(r * Math.sin(a)).toFixed(2), +(-9.6 + r * Math.cos(a)).toFixed(2)]);
 const seats = [];
 
 // モニターの画面（全員で共有）
@@ -735,6 +747,16 @@ function setupAvatar(gltf, parent) {
 const AVATARS = { 0: 'Male_Adult_08', 1: 'Male_Adult_02', 2: 'Female_Adult_01', 3: 'Male_Adult_03', host: 'Male_Adult_07' };
 const SEAT_PELVIS = new THREE.Vector3(0, .56, .58);
 let hostRig = null; const S_host = { hy: 0 };
+
+// ルーム戦の人数に合わせて席を出したり隠したりする（5人目からは席を新しく作り、人のモデルは複製して使う）
+let seatModels = null;
+function ensureSeats(n) {
+  while (seats.length < n) {
+    const S = makeSeat(seats.length);
+    if (seatModels) { const src = seatModels[S.i % seatModels.length]; S.rig = setupAvatar({ scene: cloneSkinned(src.scene) }, S.g); }
+  }
+  seats.forEach((S, i) => S.g.visible = i < n);
+}
 
 /* ============ 観客 ============ */
 const audience = [];
@@ -915,7 +937,7 @@ function choicesFor(c) {
 }
 
 /* ============ ゲームの進行 ============ */
-const G = { players: [], mode: 'solo', phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
+const G = { N: 4, style: 'buzz', lim: 20, done: [], allT: 0, allOk: [], players: [], mode: 'solo', phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
   ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, lv: 1, n: 10, st: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
 const ui = { answer: document.getElementById('answer'), choices: document.getElementById('choices'), tbar: document.querySelector('#tbar i'),
   hint: document.getElementById('hint'), next: document.getElementById('next'), qno: document.getElementById('qno'), score: document.getElementById('score') };
@@ -925,8 +947,10 @@ function paintNext() {
   const el = ui.next; let rem = -1;
   if (G.phase === 'judge' && G.judge) {
     if (G.judge.ok) rem = G.wait + T.revealAfterOk;
-    else if (G.locked.size >= 4) rem = G.wait + T.reveal;
+    else if (G.locked.size >= G.N) rem = G.wait + T.reveal;
   } else if (G.phase === 'reveal') rem = G.wait;
+  else if (G.phase === 'allJudge') rem = G.wait + T.revealAfterOk;
+  else if (G.phase === 'allAns') { el.textContent = `残り ${Math.max(0, Math.ceil(G.lim - G.allT))} 秒`; el.style.opacity = 1; return; }
   if (rem < 0) { el.style.opacity = 0; return; }
   const last = G.qi >= QUESTIONS.length - 1;
   el.textContent = `${last ? '結果発表' : '次の問題'}まで あと ${Math.max(1, Math.ceil(rem))} 秒`; el.style.opacity = 1;
@@ -954,15 +978,38 @@ function introQuestion() {
 function startQuestion() {
   G.phase = 'reading'; G.shown = 0; G.acc = 0; G.buzzer = -1; G.locked = new Set(); G.judge = null; G.idleAfterEnd = 0;
   const Q = QUESTIONS[G.qi];
+  if (G.style === 'all') return startAll(Q);
   const rnd = Math.random;
-  G.cpuPlan = [0, 2, 3].map(i => {
+  G.cpuPlan = [...Array(G.N).keys()].filter(i => i !== ME).map(i => {
     // 問題がむずかしいほど、CPUも押すのが遅く・まちがえやすくなる
     const L = botParams(G.players[i].str - (Q.lv - 2 - G.players[i].tier) * .07);
-    return rnd() < L.prob ? { i, at: Math.floor(Q.q.length * clamp(L.from + rnd() * L.span, .25, 1)), delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
+    return rnd() < L.prob ? { i, at: botBuzzAt(Q.q.length, L), delay: L.delay[0] + rnd() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
   }).filter(Boolean);
   G.ANS_LIMIT = ansLimit(Q.y);
   ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = .7;
   crowd.focus.set(0, 1.4, -9.6); drawVision();
+}
+// ── みんなで回答モード ──
+function startAll(Q) {
+  G.phase = 'allAns'; G.shown = Q.q.length; G.allT = 0; G.ansPos = 0; G.mySaid = ''; G.waitChar = false; G.allOk = [];
+  G.done = G.players.map(() => null);
+  G.allPlan = G.online ? [] : G.players.map((p, i) => i === ME ? null : botAllPlan(botParams(p.str - (Q.lv - 2 - p.tier) * .07), p.str, Q, G.lim));
+  G.ANS_LIMIT = G.lim; ui.tbar.style.width = '100%'; ui.choices.style.opacity = 1;
+  ui.qno.textContent = `第${G.qi + 1}問 / ${QUESTIONS.length}`; ui.hint.style.opacity = 0;
+  crowd.focus.set(0, 1.4, -9.6); showChoices(); drawVision();
+}
+function finishMine(ok) {
+  if (G.done[ME] !== null) return;
+  G.done[ME] = ok; ui.answer.style.display = 'none';
+  if (ok) SFX.click(); else SFX.wrong();
+  drawVision();
+}
+function allEnd(oks) {
+  G.phase = 'allJudge'; G.wait = T.judgeOk; G.allOk = oks; ui.answer.style.display = 'none';
+  if (G.done[ME] === true) G.st.ok++; else if (G.done[ME] === false) G.st.ng++;
+  if (oks.includes(ME)) SFX.correct(); else SFX.swell(.05, 1);
+  if (oks.length) { setTimeout(() => SFX.applause(.6 + oks.length / G.N * .6, 2.6), 250); crowd.clap = 1; }
+  drawVision();
 }
 function buzz(i) {
   if (G.phase !== 'reading' || G.locked.has(i)) return false;
@@ -985,6 +1032,14 @@ function showChoices() {
   ui.answer.style.display = 'flex';
 }
 function pickChar(ch) {
+  if (G.phase === 'allAns') {
+    if (G.done[ME] !== null) return;
+    const Q = QUESTIONS[G.qi]; SFX.tick(); G.mySaid = Q.y.slice(0, G.ansPos) + ch;
+    if (G.online) { if (G.waitChar) return; G.waitChar = true; ui.choices.style.opacity = .5; net.send({ t: 'char', ch }); return; }
+    if (ch === Q.y[G.ansPos]) { G.ansPos++; if (G.ansPos >= Q.y.length) finishMine(true); else showChoices(); }
+    else finishMine(false);
+    return;
+  }
   if (G.phase !== 'answering' || G.buzzer !== ME) return;
   const Q = QUESTIONS[G.qi];
   SFX.tick();
@@ -1006,12 +1061,12 @@ function judge(ok) {
 }
 function afterJudge() {
   const Q = QUESTIONS[G.qi];
-  if (G.judge.ok || G.locked.size >= 4) return reveal();
+  if (G.judge.ok || G.locked.size >= G.N) return reveal();
   // 誤答：残りの人で問題の続き
   G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6);
   if (!G.locked.has(ME)) ui.hint.style.opacity = .7;
 }
-function reveal() { G.phase = 'reveal'; G.wait = G.judge && G.judge.ok ? T.revealAfterOk : T.reveal; G.shown = QUESTIONS[G.qi].q.length; }
+function reveal() { G.phase = 'reveal'; G.wait = (G.judge && G.judge.ok) || G.style === 'all' ? T.revealAfterOk : T.reveal; G.shown = QUESTIONS[G.qi].q.length; }
 function nextQuestion() {
   G.qi++;
   if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; setTimeout(finishMatch, 2200); return; }
@@ -1026,8 +1081,18 @@ function tickGame(dt) {
     else if (G.phase === 'answering') { G.ansT += dt; if (G.buzzer === ME) ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; }
     else if (G.phase === 'judge') { G.judge.t += dt; G.wait -= dt; }
     else if (G.phase === 'reveal') G.wait -= dt;
+    else if (G.phase === 'allAns') { G.allT += dt; ui.tbar.style.width = `${Math.max(0, 1 - G.allT / G.lim) * 100}%`; }
+    else if (G.phase === 'allJudge') G.wait -= dt;
     return;
   }
+  if (G.phase === 'allAns') {
+    G.allT += dt; ui.tbar.style.width = `${Math.max(0, 1 - G.allT / G.lim) * 100}%`;
+    G.allPlan.forEach((p, i) => { if (p && G.done[i] === null && G.allT >= p.at) { G.done[i] = p.ok; SFX.tick(); } });
+    if (G.allT >= G.lim && G.done[ME] === null) finishMine(false);
+    if (G.allT >= G.lim || G.done.every(v => v !== null)) { const oks = G.done.map((v, i) => v ? i : -1).filter(i => i >= 0); oks.forEach(i => G.scores[i] += 10); allEnd(oks); }
+    return;
+  }
+  if (G.phase === 'allJudge') { G.wait -= dt; if (G.wait <= 0) { reveal(); G.wait = T.revealAfterOk; } return; }
   if (G.phase === 'ready') { G.wait -= dt; if (G.wait <= 0) introQuestion(); }
   else if (G.phase === 'intro') { G.wait -= dt; if (G.wait <= 0) startQuestion(); }
   else if (G.phase === 'reading') {
@@ -1062,7 +1127,7 @@ let blink = 0;
 let monKey = '';
 function drawMonitor(t) {
   const blinkOn = Math.floor(t * 3) % 2 === 0;
-  const key = [G.phase, G.qi, G.shown, G.ansPos, G.cpuAns, G.scores.join(), G.locked.size, G.buzzer, G.judge && G.judge.ok, blinkOn].join('|');
+  const key = [G.phase, G.qi, G.shown, G.ansPos, G.cpuAns, G.scores.join(), G.locked.size, G.buzzer, G.judge && G.judge.ok, blinkOn, G.done.join(), G.allOk.length].join('|');
   if (key === monKey) return; monKey = key; // 変化があった時だけ描き直す
   const g = monCanvas.getContext('2d'), w = 1024, h = 608;
   g.setTransform(2, 0, 0, 2, 0, 0);
@@ -1079,15 +1144,17 @@ function drawMonitor(t) {
   const Q = QUESTIONS[Math.min(G.qi, QUESTIONS.length - 1)];
   g.textAlign = 'left';
   if (G.phase === 'result') {
-    const order = [0, 1, 2, 3].sort((a, b) => G.scores[b] - G.scores[a]);
-    g.font = `bold 52px ${FONT}`;
-    order.forEach((p, k) => { g.fillStyle = p === ME ? '#ffcc33' : '#fff'; g.fillText(`${k + 1}位  ${NAMES[p]}　${G.scores[p]}点`, 60, 170 + k * 92); });
+    const order = [...Array(G.N).keys()].sort((a, b) => G.scores[b] - G.scores[a]);
+    const top = order.slice(0, 5); if (!top.includes(ME)) top[4] = ME; // 自分はかならず出す
+    g.font = `bold ${G.N > 4 ? 46 : 52}px ${FONT}`;
+    top.forEach((p, k) => { const pl = G.scores.filter(v => v > G.scores[p]).length + 1; g.fillStyle = p === ME ? '#ffcc33' : '#fff'; g.fillText(`${pl}位  ${NAMES[p]}　${G.scores[p]}点`, 60, 160 + k * (G.N > 4 ? 82 : 92)); });
   } else if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' || G.phase === 'intro') {
     if (G.phase === 'intro') { g.font = `bold 96px ${FONT}`; g.fillStyle = '#ffcc33'; g.textAlign = 'center'; g.fillText(G.qi === QUESTIONS.length - 1 ? '最終問題' : `第${G.qi + 1}問`, w / 2, 250);
       g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('まもなく出題', w / 2, 360); g.textAlign = 'left'; monTex.needsUpdate = true; return; }
-    g.font = `bold 50px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`早押しクイズ ${QUESTIONS.length || G.n}問勝負`, 40, 200);
-    g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('正解 +10点 ／ 誤答 −5点', 40, 280);
-    g.fillText('分かったらすぐにボタン！', 40, 340);
+    const all = G.style === 'all';
+    g.font = `bold 50px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`${all ? 'みんなで回答' : '早押しクイズ'} ${QUESTIONS.length || G.n}問勝負`, 40, 200);
+    g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText(all ? `${G.lim}秒以内に正解すれば全員 +10点` : '正解 +10点 ／ 誤答 −5点', 40, 280);
+    g.fillText(all ? 'まちがえたらその問題はおしまい' : '分かったらすぐにボタン！', 40, 340);
   } else {
     g.font = `bold 54px ${FONT}`; g.fillStyle = '#fff';
     const lines = wrapText(g, Q.q.slice(0, G.shown), w - 80);
@@ -1105,6 +1172,22 @@ function drawMonitor(t) {
       const bs = Math.min(76, (w - 60) / Q.y.length), bx = bs * .84; // 長い答えは枠を小さく
       for (let k = 0; k < Q.y.length; k++) { const x = 30 + k * bs; g.strokeStyle = '#fff'; g.lineWidth = 3; g.strokeRect(x, by + 72 + (64 - bx) / 2, bx, bx);
         if (got[k]) { g.font = `bold ${Math.round(bx * .72)}px ${FONT}`; g.textAlign = 'center'; g.fillText(got[k], x + bx / 2, by + 106); g.textAlign = 'left'; } }
+    } else if (G.phase === 'allAns') {
+      const mine = G.done[ME], n = G.done.filter(v => v !== null).length;
+      g.fillStyle = mine === true ? 'rgba(40,170,90,.85)' : mine === false ? 'rgba(40,90,255,.7)' : 'rgba(255,255,255,.12)'; g.fillRect(0, by, w, 150);
+      g.font = `bold 38px ${FONT}`; g.fillStyle = '#fff';
+      g.fillText(mine === true ? '回答完了！ 結果を待っています' : mine === false ? '× まちがえました' : 'みんなで回答中', 30, by + 40);
+      g.textAlign = 'right'; g.fillText(`答えた人 ${n}/${G.N}`, w - 30, by + 40); g.textAlign = 'left';
+      const got = Q.y.slice(0, G.ansPos), bs = Math.min(76, (w - 60) / Q.y.length), bx = bs * .84;
+      for (let k = 0; k < Q.y.length; k++) { const x = 30 + k * bs; g.strokeStyle = '#fff'; g.lineWidth = 3; g.strokeRect(x, by + 72 + (64 - bx) / 2, bx, bx);
+        if (got[k]) { g.font = `bold ${Math.round(bx * .72)}px ${FONT}`; g.textAlign = 'center'; g.fillText(got[k], x + bx / 2, by + 106); g.textAlign = 'left'; } }
+    } else if (G.phase === 'allJudge' || (G.style === 'all' && G.phase === 'reveal')) {
+      const mine = G.allOk.includes(ME);
+      g.fillStyle = mine ? 'rgba(255,60,60,.85)' : 'rgba(40,90,255,.85)'; g.fillRect(0, by, w, 150);
+      g.font = `bold 44px ${FONT}`; g.fillStyle = '#fff';
+      g.fillText(`${mine ? '○ 正解！ +10点' : G.done[ME] === false ? '× 不正解' : '時間切れ'}`, 30, by + 50);
+      g.textAlign = 'right'; g.fillText(`正解者 ${G.allOk.length}/${G.N}人`, w - 30, by + 50); g.textAlign = 'left';
+      g.fillText(`${Q.a}（${Q.y}）`, 30, by + 110);
     } else if (G.phase === 'judge' || G.phase === 'reveal') {
       const ok = G.judge ? G.judge.ok : null;
       g.fillStyle = ok === true ? 'rgba(255,60,60,.85)' : ok === false ? 'rgba(40,90,255,.85)' : 'rgba(255,255,255,.12)'; g.fillRect(0, by, w, 150);
@@ -1127,22 +1210,27 @@ function drawVision() {
   g.font = `900 92px ${FONT}`; g.fillText('クイズアリーナ', w / 2, 120);
   g.font = `bold 40px ${FONT}`; g.fillStyle = '#7fd6ff';
   g.fillText(G.phase === 'result' ? '結果発表' : G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' ? 'まもなく開始' : `第${G.qi + 1}問`, w / 2, 210);
-  const bw = 270;
-  for (let i = 0; i < 4; i++) {
-    const x = w / 2 + (i - 1.5) * (bw + 24), y = 470, on = G.buzzer === i && G.phase === 'answering';
-    g.fillStyle = on ? '#e3262e' : 'rgba(255,255,255,.08)'; g.fillRect(x - bw / 2, y - 130, bw, 260);
-    g.strokeStyle = i === ME ? '#ffcc33' : 'rgba(255,255,255,.4)'; g.lineWidth = 4; g.strokeRect(x - bw / 2, y - 130, bw, 260);
-    g.fillStyle = '#fff'; g.font = `bold 48px ${FONT}`; g.fillText(NAMES[i], x, y - 60);
-    g.font = `900 96px ${FONT}`; g.fillText(G.scores[i], x, y + 50);
-    if (G.locked.has(i) && G.phase !== 'result') { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x - bw / 2, y - 130, bw, 260); g.fillStyle = '#8fb0ff'; g.font = `bold 40px ${FONT}`; g.fillText('お休み', x, y); }
-  }
+  // 得点ボード（5人以上のときは点数の高い順に小さく並べる）
+  const N = G.N, many = N > 4, order = [...Array(N).keys()];
+  if (many) order.sort((a, b) => G.scores[b] - G.scores[a] || a - b);
+  const cols = many ? Math.ceil(N / (N > 10 ? 3 : 2)) : 4, rows = Math.ceil(N / cols);
+  const bw = many ? Math.min(270, (w - 60) / cols - 14) : 270, bh = many ? Math.min(150, 430 / rows - 12) : 260, f = many ? bh / 260 : 1;
+  order.forEach((i, k) => {
+    const c = k % cols, rw = Math.floor(k / cols), inRow = Math.min(cols, N - rw * cols);
+    const x = w / 2 + (c - (inRow - 1) / 2) * (bw + 14 + (many ? 0 : 10)), y = many ? 290 + bh / 2 + rw * (bh + 12) : 470, on = (G.buzzer === i && G.phase === 'answering') || (G.phase === 'allJudge' && G.allOk.includes(i));
+    g.fillStyle = on ? '#e3262e' : 'rgba(255,255,255,.08)'; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
+    g.strokeStyle = i === ME ? '#ffcc33' : 'rgba(255,255,255,.4)'; g.lineWidth = 4; g.strokeRect(x - bw / 2, y - bh / 2, bw, bh);
+    g.fillStyle = '#fff'; g.font = `bold ${Math.round(48 * Math.max(f, .62))}px ${FONT}`; g.fillText(NAMES[i], x, y - 60 * f, bw - 12);
+    g.font = `900 ${Math.round(96 * f)}px ${FONT}`; g.fillText(G.scores[i], x, y + 50 * f);
+    if (G.locked.has(i) && G.phase !== 'result') { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x - bw / 2, y - bh / 2, bw, bh); g.fillStyle = '#8fb0ff'; g.font = `bold ${Math.round(40 * Math.max(f, .7))}px ${FONT}`; g.fillText('お休み', x, y); }
+  });
   visionTex.needsUpdate = true;
   ui.score.textContent = `${NAMES[ME]} ${G.scores[ME]}点`;
 }
 
 /* ============ 入力 ============ */
 function onPress() {
-  if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result') return;
+  if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result' || G.style === 'all') return;
   startMyPress();
   // ほかの人に一瞬先をこされた：何秒差だったかを出す
   if (G.phase === 'answering' && G.buzzer !== ME && !G.locked.has(ME)) { const by = performance.now() - G.buzzWall; if (by < 1000) showLost(by); }
@@ -1208,6 +1296,7 @@ document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', 
 
 // 席の名前とランクを入れかえる
 function setPlayers(list) {
+  G.N = list.length; ensureSeats(G.N);
   G.players = list.map((p, i) => {
     const rp = p.rp ?? ME_DATA.rp;
     return { name: p.name, rp, tier: tierOf(rp), str: p.str ?? rankStrength(rp), bot: i !== ME };
@@ -1227,12 +1316,14 @@ function segSetup(id, key, prop, after) {
   paint();
 }
 segSetup('optLv', 'hs_lv', 'lv', () => showBest()); segSetup('optN', 'hs_n', 'n', () => showBest()); segSetup('optQ', 'hs_qd', 'qd', () => showBest());
-segSetup('optRN', 'hs_rn', 'rn'); segSetup('optRQ', 'hs_rq', 'rq');
+G.rs = load('hs_rs', 0); G.rl = load('hs_rl', 20);
+const paintRS = () => { $('optRL').parentElement.style.display = G.rs && (!room || !room.online || room.host) ? '' : 'none'; };
+segSetup('optRN', 'hs_rn', 'rn'); segSetup('optRQ', 'hs_rq', 'rq'); segSetup('optRS', 'hs_rs', 'rs', paintRS); segSetup('optRL', 'hs_rl', 'rl');
 function bestKey() { return `hs_best_${G.lv}_${G.n}_${G.qd}`; }
 function showBest() { const b = load(bestKey(), null); $('bestTxt').textContent = b ? `この設定の自己ベスト：${b.score}点（${b.rank}位）` : 'この設定はまだ記録なし'; }
 function openSolo() { G.phase = 'menu'; show('menu'); showBest(); }
 function startSolo() {
-  G.mode = 'solo';
+  G.mode = 'solo'; G.style = 'buzz';
   const s = SOLO_STRENGTH[G.lv];
   setPlayers([{ name: 'ハルト', str: s, rp: ME_DATA.rp }, { name: ME_DATA.name, rp: ME_DATA.rp }, { name: 'ミサキ', str: s - .04, rp: ME_DATA.rp }, { name: 'ケンジ', str: s + .04, rp: ME_DATA.rp }]);
   const t = G.qd < 0 ? tierOf(ME_DATA.rp) : G.qd;
@@ -1262,14 +1353,14 @@ function openMatch() {
 $('mCancel').addEventListener('click', () => { net.cancel(); openHome(); });
 function paintSlots(el, list) {
   el.innerHTML = '';
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < Math.max(4, Math.min(MAX_ROOM, list.length + (el.id === 'rSlots' && list.length < MAX_ROOM ? 1 : 0))); k++) {
     const p = list[k], d = document.createElement('div'); d.className = 'slot' + (p ? ' on' : '');
     d.innerHTML = p ? `<b>${p.name}</b><span style="color:${rankColor(p.rp)}">${embI(p.rp)} ${rankName(p.rp)}</span>` : '<span style="opacity:.4">…</span>';
     el.appendChild(d);
   }
 }
 function startRanked(others) {
-  G.mode = 'rank';
+  G.mode = 'rank'; G.style = 'buzz';
   setPlayers([others[0], { name: ME_DATA.name, rp: ME_DATA.rp }, others[1], others[2]]);
   // 部屋でいちばん低いランク〜高いランクの範囲から出題
   const tiers = G.players.map(p => p.tier);
@@ -1285,8 +1376,8 @@ function openRoom() {
 function showLobby() {
   $('roomEntry').style.display = 'none'; $('roomLobby').style.display = 'block'; $('rCodeShow').textContent = room.code;
   const host = !room.online || room.host;
-  $('rBot').style.display = $('rStart').style.display = host ? '' : 'none';
-  $('optRN').parentElement.style.display = $('optRQ').parentElement.style.display = host ? '' : 'none';
+  $('rBot').style.display = $('rKick').style.display = $('rStart').style.display = host ? '' : 'none';
+  $('optRN').parentElement.style.display = $('optRQ').parentElement.style.display = $('optRS').parentElement.style.display = host ? '' : 'none'; paintRS();
   $('rWait').style.display = host ? 'none' : 'block';
   paintRoom();
 }
@@ -1308,31 +1399,39 @@ $('rJoin').addEventListener('click', () => {
 $('rBot').addEventListener('click', () => {
   if (!room) return;
   if (room.online) { net.addBot(); SFX.tick(); return; }
-  if (room.players.length >= 3) return; net.addBot(room, ME_DATA); paintRoom(); SFX.tick();
+  if (room.players.length >= MAX_ROOM - 1) return; net.addBot(room, ME_DATA); paintRoom(); SFX.tick();
+});
+$('rKick').addEventListener('click', () => {
+  if (!room) return;
+  if (room.online) { net.send({ t: 'kickbot' }); SFX.tick(); return; }
+  const k = room.players.map(p => !!p.bot).lastIndexOf(true); if (k >= 0) { room.players.splice(k, 1); paintRoom(); SFX.tick(); }
 });
 $('rStart').addEventListener('click', () => {
   if (!room) return;
-  if (room.online) { if (room.host) net.startRoom(G.rn, G.rq); return; }
+  if (room.online) { if (room.host) net.startRoom(G.rn, G.rq, G.rs ? 'all' : 'buzz', G.rl); return; }
   while (room.players.length < 3) net.addBot(room, ME_DATA); // 足りない席はCPU
-  G.mode = 'room';
+  G.mode = 'room'; G.style = G.rs ? 'all' : 'buzz'; G.lim = G.rl;
   const o = room.players;
-  setPlayers([o[0], { name: ME_DATA.name, rp: ME_DATA.rp }, o[1], o[2]]);
+  setPlayers([o[0], { name: ME_DATA.name, rp: ME_DATA.rp }, ...o.slice(1)]);
   const tiers = G.players.map(p => p.tier);
   beginMatch(pickQuestions(G.rn, G.rq >= 0 ? LV_MIX[G.rq] : mixForTiers(Math.min(...tiers), Math.max(...tiers))));
 });
 $('rBack').addEventListener('click', () => { if (room && room.online) net.leaveRoom(); room ? openRoom() : openHome(); });
-function paintRoom() { paintSlots($('rSlots'), room.online ? room.list : [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players]); }
+function paintRoom() {
+  const list = room.online ? room.list : [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players];
+  paintSlots($('rSlots'), list); $('rCount').textContent = `${list.length} / ${MAX_ROOM}人（4人より少ないときはCPUが入ります）`;
+}
 
 // ── サーバーからの合図（オンラインのときだけ使う） ──
 let SEAT = 0;                                  // サーバーでの自分の席
-const cli = s => (s - SEAT + ME + 4) % 4;      // サーバーの席 → 画面の席（自分はいつも ME）
+const cli = s => (s - SEAT + ME + G.N) % G.N;      // サーバーの席 → 画面の席（自分はいつも ME）
 net.on('room', m => {
   room = { online: true, code: m.code, host: m.host, list: m.players };
   if (G.phase === 'menu' && $('room').style.display !== 'none') showLobby();
 });
 net.on('error', m => { $('rErr').textContent = m.msg; });
 net.on('begin', m => {
-  SEAT = m.seat; G.mode = m.mode;
+  SEAT = m.seat; G.mode = m.mode; G.style = m.style || 'buzz'; G.lim = m.lim || 20;
   const list = []; m.players.forEach((p, s) => list[cli(s)] = { name: p.name, rp: p.rp });
   setPlayers(list);
   beginMatch(m.questions); G.online = true;
@@ -1344,7 +1443,7 @@ net.on('read', m => {
   else { G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6); if (!G.locked.has(ME)) ui.hint.style.opacity = .7; }
   G.shown = m.shown; G.acc = 0; G.pendingBuzz = false;
 });
-net.on('buzzed', m => { if (!G.online) return; G.pendingBuzz = false; G.phase = 'reading'; G.shown = m.shown; G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
+net.on('buzzed', m => { if (!G.online) return; G.pendingBuzz = false; G.phase = 'reading'; G.shown = Math.min(G.shown, m.shown); /* 先に進めない */ G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
 net.on('char', m => {
   if (!G.online || G.phase !== 'answering') return;
   if (cli(m.seat) === ME) { G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1; showChoices(); }
@@ -1352,6 +1451,18 @@ net.on('char', m => {
 });
 net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); if (!m.ok && m.ch && cli(m.seat) !== ME) G.cpuAns += m.ch; G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
 net.on('reveal', () => { if (G.online) reveal(); });
+net.on('mine', m => {
+  if (!G.online || G.phase !== 'allAns') return;
+  G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1;
+  if (m.ok === true || m.ok === false) finishMine(m.ok); else showChoices();
+});
+net.on('done', m => { if (G.online && G.phase === 'allAns' && cli(m.seat) !== ME && G.done[cli(m.seat)] === null) { G.done[cli(m.seat)] = true; SFX.tick(); } });
+net.on('allEnd', m => {
+  if (!G.online) return;
+  m.scores.forEach((v, s) => G.scores[cli(s)] = v);
+  if (G.done[ME] === null) G.done[ME] = false;
+  allEnd(m.oks.map(cli));
+});
 net.on('late', m => { if (G.online && G.phase === 'answering' && G.buzzer !== ME) showLost(m.by); });
 net.on('end', m => {
   if (!G.online) return;
@@ -1366,7 +1477,7 @@ net.on('close', () => {
 
 // ── 試合の開始と終了 ──
 function beginMatch(qs) {
-  show(null); QUESTIONS = qs; G.online = false; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
+  show(null); QUESTIONS = qs; G.online = false; G.qi = 0; G.scores = G.players.map(() => 0); G.locked = new Set(); G.buzzer = -1; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
   ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = T.ready; G.mySaid = ''; monKey = ''; drawVision();
   showVs();
 }
@@ -1374,10 +1485,11 @@ function beginMatch(qs) {
 let camIntro = 99, vsOn = false;
 function showVs() {
   const el = $('vs');
-  $('vsTitle').textContent = { solo: 'ひとりで練習', rank: 'ランクマッチ', room: 'ルーム戦' }[G.mode] || '';
+  $('vsTitle').textContent = ({ solo: 'ひとりで練習', rank: 'ランクマッチ', room: 'ルーム戦' }[G.mode] || '') + (G.style === 'all' ? '・みんなで回答' : '');
+  $('vsRow').className = 'row' + (G.N > 5 ? ' many' : '');
   $('vsRow').innerHTML = G.players.map((p, i) => {
     const sub = G.mode === 'solo' && i !== ME ? `CPU・${LV_NAMES[G.lv]}` : rankName(p.rp);
-    return `<div class="pc${i === ME ? ' mine' : ''}" style="border-color:${rankColor(p.rp)};animation-delay:${(.15 + i * .18).toFixed(2)}s">
+    return `<div class="pc${i === ME ? ' mine' : ''}" style="border-color:${rankColor(p.rp)};animation-delay:${(.15 + i * (G.N > 5 ? .06 : .18)).toFixed(2)}s">
       <i>${i === ME ? 'あなた' : '&nbsp;'}</i>${embI(p.rp, 84)}<b>${esc(p.name)}</b><span style="color:${rankColor(p.rp)}">${sub}</span></div>`;
   }).join('');
   el.style.display = 'flex'; el.style.opacity = 1; vsOn = true; camIntro = 0; SFX.swell(.05, 1.2);
@@ -1407,8 +1519,10 @@ function finishMatch() {
   const nb = $('rNew'), rpEl = $('rRp'); rpEl.textContent = ''; nb.textContent = ''; nb.style.color = 'rgba(255,255,255,.55)';
   if (G.mode === 'rank') {
     // ランクが上の相手に勝つと少し多め、下の相手に負けると少し多めに減る
-    const avgOpp = (G.players.reduce((a, p, i) => a + (i === ME ? 0 : p.rp), 0)) / 3;
+    const avgOpp = (G.players.reduce((a, p, i) => a + (i === ME ? 0 : p.rp), 0)) / (G.N - 1);
     let d = RP_GAIN[place - 1] + Math.round(clamp((avgOpp - ME_DATA.rp) / 50, -5, 5));
+    // 自分より低いランクの相手に負けたら、いつもより多く下がる（差が大きいほど）
+    if (place >= 3 && avgOpp < ME_DATA.rp) d -= Math.round(clamp((ME_DATA.rp - avgOpp) / 15, 0, 20));
     if (tierOf(ME_DATA.rp) === 0 && d < 0) d = 0; // ビギナーは下がらない
     const before = ME_DATA.rp; ME_DATA.rp = Math.max(0, ME_DATA.rp + d); ME_DATA.peak = Math.max(ME_DATA.peak, ME_DATA.rp);
     const up = rankIdx(ME_DATA.rp) > rankIdx(before), down = rankIdx(ME_DATA.rp) < rankIdx(before);
@@ -1469,7 +1583,7 @@ function update(dt, t) {
   // 自分のボタン
   me.cap.position.y = .062 - .011 * clamp((pk - .85) / .15, 0, 1);
   // ほかの出場者
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < G.N; i++) {
     if (i === ME) continue;
     const S = seats[i], r = S.rig; if (!r) continue;
     let k = 0, arc = 0;
@@ -1502,13 +1616,13 @@ function update(dt, t) {
   // 名札のランプ（押した人）
   for (const S of seats) S.lamp.material.emissiveIntensity = (G.phase === 'answering' && G.buzzer === S.i) ? 3 + Math.sin(t * 20) * 1 : 0;
   // カメラ：読んでいるときはモニターへ視線、ほかの人が押したら少しそちらへ
-  let wantPitch = (G.phase === 'reading' || G.phase === 'answering') ? -.3 : -.16, wantYaw = 0;
+  let wantPitch = (G.phase === 'reading' || G.phase === 'answering' || G.phase === 'allAns') ? -.3 : -.16, wantYaw = 0;
   if (G.buzzer >= 0 && G.buzzer !== ME && G.phase !== 'reading') { const d = seats[G.buzzer].g.position.clone().sub(me.g.position).applyAxisAngle(_up, -me.g.rotation.y);
     wantYaw = Math.atan2(-d.x, -d.z) * .3; wantPitch = -.22; }
   yaw = lerp(yaw, wantYaw, Math.min(1, dt * 2.2)); pitch = lerp(pitch, wantPitch, Math.min(1, dt * 2.2));
   // 問題を読んでいる間はモニターへズーム（入るときはゆっくり、出るときは素早く）
   if (freeCam) { drawMonitor(t); return; }
-  const zoomWant = (G.phase === 'reading' || (G.phase === 'answering' && G.buzzer === ME)) ? 1 : 0;
+  const zoomWant = (G.phase === 'reading' || G.phase === 'allAns' || (G.phase === 'answering' && G.buzzer === ME)) ? 1 : 0;
   zoomK = zoomWant > zoomK ? Math.min(1, zoomK + dt / .9) : Math.max(0, zoomK - dt / .28);
   const ez = easeInOut(zoomK);
   const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -1592,6 +1706,7 @@ function showProg() { document.getElementById('load').textContent = `会場を�
     const byName = {}; names.forEach((n, i) => byName[n] = chars[i]);
     buildAudience(aud);
     for (let i = 0; i < 4; i++) seats[i].rig = setupAvatar(byName[AVATARS[i]], seats[i].g);
+    seatModels = [0, 2, 3, 1].map(i => byName[AVATARS[i]]);
     hostRig = setupAvatar(byName[AVATARS.host], hostSpot);
     // 自分の目がカメラの位置に来るように体を合わせる
     const r = me.rig; r.reset(); r.placePelvis(me.g.localToWorld(SEAT_PELVIS.clone())); r.sit(.06);

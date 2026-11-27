@@ -2,7 +2,7 @@
 // ・ランクマッチ（近いランクから探して、待つほど範囲をひろげる。30秒でそろわなければCPUで埋める）
 // ・ルーム戦（4けたの部屋番号）
 // ・試合の進行と早押しの判定（だれが一番に押したかは、サーバーに届いた順で決める）
-import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, botRpNear, T, wrongChar } from '../../net.js';
+import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, botRpNear, T, wrongChar, MAX_ROOM, botBuzzAt, ALL_LIMS, botAllPlan } from '../../net.js';
 import lv1 from '../../questions/lv1.json';
 import lv2 from '../../questions/lv2.json';
 import lv3 from '../../questions/lv3.json';
@@ -66,7 +66,8 @@ export class Hub {
       case 'create': this.createRoom(cl, m.n); break;
       case 'join': this.joinRoom(cl, String(m.code || '')); break;
       case 'addbot': this.addBot(cl); break;
-      case 'start': this.startRoom(cl, m.n, m.qd); break;
+      case 'kickbot': { const r = cl.room; if (r && r.members[0] === cl && !r.playing && r.bots.length) { r.bots.pop(); this.roomCast(r); } break; }
+      case 'start': this.startRoom(cl, m.n, m.qd, m.style, m.lim); break;
       case 'leave': this.leaveRoom(cl); break;
       case 'buzz': if (cl.game) cl.game.buzz(cl.seat, m.shown); break;
       case 'char': if (cl.game && typeof m.ch === 'string') cl.game.char(cl.seat, m.ch.slice(0, 1)); break;
@@ -118,11 +119,11 @@ export class Hub {
     if (cl.game) return; const r = this.rooms.get(code);
     if (!r) return this.send(cl, { t: 'error', msg: 'その番号の部屋は見つかりませんでした' });
     if (r.playing) return this.send(cl, { t: 'error', msg: 'その部屋はいま試合中です' });
-    if (r.members.length + r.bots.length >= 4) return this.send(cl, { t: 'error', msg: 'その部屋は満員です' });
+    if (r.members.length + r.bots.length >= MAX_ROOM) return this.send(cl, { t: 'error', msg: 'その部屋は満員です' });
     this.dequeue(cl); this.leaveRoom(cl); r.members.push(cl); cl.room = r; this.roomCast(r);
   }
   addBot(cl) {
-    const r = cl.room; if (!r || r.members[0] !== cl || r.playing || r.members.length + r.bots.length >= 4) return;
+    const r = cl.room; if (!r || r.members[0] !== cl || r.playing || r.members.length + r.bots.length >= MAX_ROOM) return;
     const used = new Set([...r.members.map(c => c.name), ...r.bots.map(b => b.name)]);
     const t = Math.max(0, Math.min(4, tierOf(cl.rp) + Math.floor(Math.random() * 3) - 1)), rp = botRpInTier(t);
     r.bots.push({ name: botName(used), rp, str: rankStrength(rp) }); this.roomCast(r);
@@ -132,18 +133,19 @@ export class Hub {
     r.members = r.members.filter(c => c !== cl);
     if (!r.members.length) this.rooms.delete(r.code); else this.roomCast(r);
   }
-  startRoom(cl, n, qd) {
+  startRoom(cl, n, qd, style, lim) {
     const r = cl.room; if (!r || r.members[0] !== cl || r.playing) return;
     if ([5, 10, 20].includes(+n)) r.n = +n;
     const players = [...r.members.map(c => ({ cl: c, name: c.name, rp: c.rp })), ...r.bots.map(b => ({ cl: null, ...b }))];
     const used = new Set(players.map(p => p.name));
     while (players.length < 4) { const rp = botRpInTier(tierOf(cl.rp)); players.push({ cl: null, name: botName(used), rp, str: rankStrength(rp) }); }
     r.playing = true;
-    this.startGame(players, r.n, 'room', r, Number.isInteger(qd) && qd >= 0 && qd < LV_MIX.length ? LV_MIX[qd] : null);
+    this.startGame(players, r.n, 'room', r, Number.isInteger(qd) && qd >= 0 && qd < LV_MIX.length ? LV_MIX[qd] : null,
+      style === 'all' ? { style: 'all', lim: ALL_LIMS.includes(+lim) ? +lim : 20 } : null);
   }
 
-  startGame(players, n, mode, room = null, weights = null) {
-    const g = new Game(this, players, n, mode, room, weights); this.games.add(g); g.start();
+  startGame(players, n, mode, room = null, weights = null, opt = null) {
+    const g = new Game(this, players, n, mode, room, weights, opt); this.games.add(g); g.start();
   }
   gameOver(g) {
     this.games.delete(g);
@@ -152,34 +154,61 @@ export class Hub {
 }
 
 class Game {
-  constructor(hub, players, n, mode, room, weights) {
-    this.hub = hub; this.mode = mode; this.room = room;
+  constructor(hub, players, n, mode, room, weights, opt) {
+    this.hub = hub; this.mode = mode; this.room = room; this.style = opt ? opt.style : 'buzz'; this.lim = opt ? opt.lim : 0;
     // 席の順番をまぜる
     this.seats = players.sort(() => Math.random() - .5).map(p => ({ ...p, tier: tierOf(p.rp), gone: false }));
     const tiers = this.seats.map(s => s.tier);
     this.questions = pickQuestions(n, weights || mixForTiers(Math.min(...tiers), Math.max(...tiers)));
-    this.scores = [0, 0, 0, 0]; this.qi = 0; this.phase = 'ready'; this.timers = new Set();
+    this.scores = this.seats.map(() => 0); this.qi = 0; this.phase = 'ready'; this.timers = new Set();
     this.seats.forEach((s, i) => { if (s.cl) { s.cl.game = this; s.cl.seat = i; } });
   }
   cast(m) { this.seats.forEach(s => s.cl && this.hub.send(s.cl, m)); }
   later(ms, fn) { const t = setTimeout(() => { this.timers.delete(t); if (!this.over) fn(); }, ms); this.timers.add(t); }
   start() {
     const players = this.seats.map(s => ({ name: s.name, rp: s.rp, bot: !s.cl }));
-    this.seats.forEach((s, i) => s.cl && this.hub.send(s.cl, { t: 'begin', mode: this.mode, seat: i, players, questions: this.questions }));
+    this.seats.forEach((s, i) => s.cl && this.hub.send(s.cl, { t: 'begin', mode: this.mode, style: this.style, lim: this.lim, seat: i, players, questions: this.questions }));
     this.tick = setInterval(() => this.onTick(), TICK_MS);
     this.later(READY_MS, () => this.intro(0));
   }
   get Q() { return this.questions[this.qi]; }
   shown() { return this.phase === 'reading' ? Math.min(this.Q.q.length, Math.floor(this.base + (Date.now() - this.t0) / 1000 * CHARS_PER_SEC)) : this.base; }
   intro(i) { this.qi = i; this.phase = 'intro'; this.cast({ t: 'intro', i }); this.later(INTRO_MS, () => this.read(0, true)); }
+  // ── みんなで回答モード：問題を全部見せて、制限時間内に正解した人は全員 +10点 ──
+  readAll() {
+    const Q = this.Q; this.phase = 'all'; this.t0 = Date.now(); this.lastOk = true;
+    this.done = this.seats.map(s => s.gone ? false : null); this.pos = this.seats.map(() => 0);
+    this.allPlans = this.seats.map(s => s.cl || s.gone ? null : botAllPlan(botParams(s.str - (Q.lv - 2 - s.tier) * .07), s.str, Q, this.lim));
+    this.cast({ t: 'read', i: this.qi, shown: Q.q.length, fresh: true });
+  }
+  allTick() {
+    const t = (Date.now() - this.t0) / 1000;
+    this.allPlans.forEach((p, i) => { if (p && this.done[i] === null && t >= p.at) { this.done[i] = p.ok; this.cast({ t: 'done', seat: i }); } });
+    if (t >= this.lim + .6 || this.done.every(v => v !== null)) this.allEnd();   // 通信の遅れのぶん少しおまけ
+  }
+  allChar(i, ch) {
+    if (this.done[i] !== null) return;
+    const y = this.Q.y, cl = this.seats[i].cl;
+    if (ch !== y[this.pos[i]]) this.done[i] = false;
+    else if (++this.pos[i] >= y.length) this.done[i] = true;
+    this.hub.send(cl, { t: 'mine', pos: this.pos[i], ok: this.done[i] });
+    if (this.done[i] !== null) this.cast({ t: 'done', seat: i });
+  }
+  allEnd() {
+    this.phase = 'judge';
+    const oks = []; this.done.forEach((v, i) => { if (v === true) { oks.push(i); this.scores[i] += 10; } });
+    this.cast({ t: 'allEnd', oks, scores: this.scores });
+    this.later(JUDGE_OK_MS, () => this.reveal());
+  }
   read(from, fresh) {
+    if (this.style === 'all') return this.readAll();
     if (fresh) {
       this.locked = new Set(this.seats.map((s, i) => s.gone ? i : -1).filter(i => i >= 0));
       const Q = this.Q;
       this.plans = this.seats.map((s, i) => {
         if (s.cl || s.gone) return null;
         const L = botParams(s.str - (Q.lv - 2 - s.tier) * .07);
-        return Math.random() < L.prob ? { i, at: Math.floor(Q.q.length * Math.max(.25, Math.min(1, L.from + Math.random() * L.span))), delay: L.delay[0] + Math.random() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
+        return Math.random() < L.prob ? { i, at: botBuzzAt(Q.q.length, L), delay: L.delay[0] + Math.random() * (L.delay[1] - L.delay[0]), skill: L.skill } : null;
       }).filter(Boolean);
     }
     this.phase = 'reading'; this.base = from; this.t0 = Date.now(); this.endAt = 0;
@@ -187,6 +216,7 @@ class Game {
   }
   onTick() {
     const now = Date.now();
+    if (this.phase === 'all') return this.allTick();
     if (this.phase === 'reading') {
       const s = this.shown();
       if (s >= this.Q.q.length) { if (!this.endAt) this.endAt = now; else if (now - this.endAt > IDLE_MS) return this.reveal(); }
@@ -217,11 +247,13 @@ class Game {
     this.buzzWall = performance.now(); this.lateSent = new Set();
     // 押した人の画面で見えていたところで問題を止める（通信の遅れで先に進まないように）
     const now = this.shown();
-    this.base = Number.isFinite(seen) ? Math.max(this.base, Math.min(now, Math.floor(seen))) : now; this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
+    // CPUのときは、みんなの画面がサーバーより少し遅れているぶん1文字もどして止める
+    this.base = Number.isFinite(seen) ? Math.max(this.base, Math.min(now, Math.floor(seen))) : this.seats[i].cl ? now : Math.max(this.base, now - 1); this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
     if (!this.seats[i].cl) { const p = this.plans.find(x => x.i === i); const okAns = Math.random() < (p ? p.skill : .7); this.wrongAt = okAns ? 99 : Math.floor(Math.random() * Math.min(3, this.Q.y.length)); }
     this.cast({ t: 'buzzed', seat: i, shown: this.base });
   }
   char(i, ch) {
+    if (this.phase === 'all') return this.allChar(i, ch);
     if (this.phase !== 'answering' || this.buzzer !== i) return;
     if (ch !== this.Q.y[this.ansPos]) return this.judge(false);
     this.ansPos++;
@@ -232,7 +264,7 @@ class Game {
     const i = this.buzzer; this.phase = 'judge'; this.lastOk = ok;
     if (ok) this.scores[i] += 10; else { this.scores[i] -= 5; this.locked.add(i); }
     this.cast(ch ? { t: 'judge', seat: i, ok, ch } : { t: 'judge', seat: i, ok });
-    this.later(ok ? JUDGE_OK_MS : JUDGE_NG_MS, () => { if (ok || this.locked.size >= 4) this.reveal(); else this.read(this.base, false); });
+    this.later(ok ? JUDGE_OK_MS : JUDGE_NG_MS, () => { if (ok || this.locked.size >= this.seats.length) this.reveal(); else this.read(this.base, false); });
   }
   reveal() {
     this.phase = 'reveal'; this.cast({ t: 'reveal' });
@@ -249,5 +281,6 @@ class Game {
     const s = this.seats[i]; s.gone = true; s.cl = null; if (this.locked) this.locked.add(i);
     if (this.seats.every(x => !x.cl)) return this.stop();       // 人がいなくなったら終わり
     if (this.phase === 'answering' && this.buzzer === i) this.judge(false);
+    if (this.phase === 'all' && this.done[i] === null) this.done[i] = false;
   }
 }
