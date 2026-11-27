@@ -2,7 +2,7 @@
 // ・ランクマッチ（近いランクから探して、待つほど範囲をひろげる。30秒でそろわなければCPUで埋める）
 // ・ルーム戦（4けたの部屋番号）
 // ・試合の進行と早押しの判定（だれが一番に押したかは、サーバーに届いた順で決める）
-import { tierOf, searchRange, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier } from '../../net.js';
+import { tierOf, searchRange, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, T, wrongChar } from '../../net.js';
 import lv1 from '../../questions/lv1.json';
 import lv2 from '../../questions/lv2.json';
 import lv3 from '../../questions/lv3.json';
@@ -11,7 +11,7 @@ import lv5 from '../../questions/lv5.json';
 import lv6 from '../../questions/lv6.json';
 
 const QB = [lv1, lv2, lv3, lv4, lv5, lv6];
-const READY_MS = 1500, INTRO_MS = 1550, JUDGE_OK_MS = 3600, JUDGE_NG_MS = 2000, REVEAL_MS = 3200, IDLE_MS = 5000, TICK_MS = 100;
+const READY_MS = T.ready * 1000 + 300, INTRO_MS = T.intro * 1000, JUDGE_OK_MS = T.judgeOk * 1000, JUDGE_NG_MS = T.judgeNg * 1000, REVEAL_OK_MS = T.revealAfterOk * 1000, REVEAL_MS = T.reveal * 1000, IDLE_MS = T.idle * 1000, TICK_MS = 100;
 
 export default {
   async fetch(req, env) {
@@ -198,7 +198,7 @@ class Game {
       if (!seat.cl) { // CPUの解答
         const want = Math.floor(Math.max(0, t - .8) / .55);
         if (want > this.ansPos) {
-          if (this.ansPos === this.wrongAt) return this.judge(false);
+          if (this.ansPos === this.wrongAt) return this.judge(false, wrongChar(this.Q.y[this.ansPos]));
           this.ansPos++; this.cast({ t: 'char', seat: this.buzzer, pos: this.ansPos, ch: this.Q.y[this.ansPos - 1] });
           if (this.ansPos >= this.Q.y.length) return this.judge(true);
         }
@@ -208,7 +208,7 @@ class Game {
   buzz(i) {
     if (this.phase !== 'reading' || this.locked.has(i) || i < 0) return;
     this.base = this.shown(); this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
-    if (!this.seats[i].cl) { const p = this.plans.find(x => x.i === i); const okAns = Math.random() < (p ? p.skill : .7); this.wrongAt = okAns ? 99 : Math.floor(Math.random() * this.Q.y.length); }
+    if (!this.seats[i].cl) { const p = this.plans.find(x => x.i === i); const okAns = Math.random() < (p ? p.skill : .7); this.wrongAt = okAns ? 99 : Math.floor(Math.random() * Math.min(3, this.Q.y.length)); }
     this.cast({ t: 'buzzed', seat: i, shown: this.base });
   }
   char(i, ch) {
@@ -218,15 +218,16 @@ class Game {
     if (this.ansPos >= this.Q.y.length) return this.judge(true);
     this.cast({ t: 'char', seat: i, pos: this.ansPos, ch });
   }
-  judge(ok) {
-    const i = this.buzzer; this.phase = 'judge';
+  judge(ok, ch) {
+    const i = this.buzzer; this.phase = 'judge'; this.lastOk = ok;
     if (ok) this.scores[i] += 10; else { this.scores[i] -= 5; this.locked.add(i); }
-    this.cast({ t: 'judge', seat: i, ok });
+    this.cast(ch ? { t: 'judge', seat: i, ok, ch } : { t: 'judge', seat: i, ok });
     this.later(ok ? JUDGE_OK_MS : JUDGE_NG_MS, () => { if (ok || this.locked.size >= 4) this.reveal(); else this.read(this.base, false); });
   }
   reveal() {
     this.phase = 'reveal'; this.cast({ t: 'reveal' });
-    this.later(REVEAL_MS, () => { if (this.qi + 1 >= this.questions.length) this.end(); else this.intro(this.qi + 1); });
+    const ms = this.lastOk ? REVEAL_OK_MS : REVEAL_MS; this.lastOk = false;
+    this.later(ms, () => { if (this.qi + 1 >= this.questions.length) this.end(); else this.intro(this.qi + 1); });
   }
   end() { this.cast({ t: 'end', scores: this.scores }); this.stop(); }
   stop() {

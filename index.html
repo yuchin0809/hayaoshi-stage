@@ -27,7 +27,7 @@
   html,body{margin:0;height:100%;background:#05060a;overflow:hidden;
     font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;color:#fff;
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
-  canvas{display:block}
+  canvas{display:block;position:fixed;left:0;top:0;width:100vw !important;height:100vh !important;height:100dvh !important}
   #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     background:radial-gradient(ellipse at 50% 40%,#1a2340 0%,#05060a 70%);z-index:10;cursor:pointer;text-align:center}
   #start h1{font-size:clamp(32px,7vw,64px);letter-spacing:.12em;margin:0 0 8px;font-weight:800}
@@ -40,6 +40,8 @@
     display:flex;justify-content:space-between;pointer-events:none;font-size:13px;opacity:.8;z-index:3}
   #hint{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
     font-size:13px;opacity:.7;pointer-events:none;z-index:3;transition:opacity .4s;white-space:nowrap}
+  #next{position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:999px;
+    background:rgba(10,14,30,.7);border:1px solid rgba(255,255,255,.25);font-size:14px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:3;white-space:nowrap}
   #answer{position:fixed;left:32%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
     display:none;flex-direction:column;align-items:center;gap:8px;z-index:4}
   #tbar{width:min(520px,80vw);height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
@@ -146,6 +148,7 @@
 </div>
 <div id="hud"><span id="qno"></span><span id="score"></span></div>
 <div id="hint">画面をタップすると早押し</div>
+<div id="next"></div>
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
 <div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
 <div class="panel" id="home"><div class="card">
@@ -222,7 +225,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { emblemSVG } from './emblem.js';
-import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC } from './net.js';
+import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, T } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -890,8 +893,19 @@ function choicesFor(c) {
 const G = { players: [], mode: 'solo', phase: 'title', qi: 0, shown: 0, acc: 0, buzzer: -1, locked: new Set(), scores: [0, 0, 0, 0],
   ansPos: 0, ansT: 0, ANS_LIMIT: 10, judge: null, lv: 1, n: 10, st: null, wait: 0, cpuPlan: [], cpuAns: '', idleAfterEnd: 0 };
 const ui = { answer: document.getElementById('answer'), choices: document.getElementById('choices'), tbar: document.querySelector('#tbar i'),
-  hint: document.getElementById('hint'), qno: document.getElementById('qno'), score: document.getElementById('score') };
+  hint: document.getElementById('hint'), next: document.getElementById('next'), qno: document.getElementById('qno'), score: document.getElementById('score') };
 
+// 「次の問題まで あと○秒」
+function paintNext() {
+  const el = ui.next; let rem = -1;
+  if (G.phase === 'judge' && G.judge) {
+    if (G.judge.ok) rem = G.wait + T.revealAfterOk;
+    else if (G.locked.size >= 4) rem = G.wait + T.reveal;
+  } else if (G.phase === 'reveal') rem = G.wait;
+  if (rem < 0) { el.style.opacity = 0; return; }
+  const last = G.qi >= QUESTIONS.length - 1;
+  el.textContent = `${last ? '結果発表' : '次の問題'}まで あと ${Math.max(1, Math.ceil(rem))} 秒`; el.style.opacity = 1;
+}
 const SOLO_STRENGTH = [.16, .5, .72];          // やさしい・ふつう・つよい
 // 「第○問」の大きな文字（毎フレーム動かす）
 let bannerT = 9; const bannerEl = document.getElementById('banner');
@@ -904,7 +918,7 @@ function animBanner(dt) {
   bannerEl.style.opacity = op.toFixed(3); bannerEl.style.transform = `scale(${sc.toFixed(3)})`;
 }
 function introQuestion() {
-  G.phase = 'intro'; G.wait = 1.55;
+  G.phase = 'intro'; G.wait = T.intro;
   const Q = QUESTIONS[G.qi], last = G.qi === QUESTIONS.length - 1;
   document.getElementById('bannerText').textContent = last ? '最終問題' : `第${G.qi + 1}問`;
   document.getElementById('bannerSub').textContent = last ? `第${G.qi + 1}問` : `${QUESTIONS.length}問中`;
@@ -926,7 +940,7 @@ function startQuestion() {
 }
 function buzz(i) {
   if (G.phase !== 'reading' || G.locked.has(i)) return false;
-  G.phase = 'answering'; G.buzzer = i; G.ansPos = 0; G.ansT = 0; G.cpuAns = '';
+  G.phase = 'answering'; G.buzzer = i; G.ansPos = 0; G.ansT = 0; G.cpuAns = ''; G.mySaid = '';
   const S = seats[i];
   SFX.buzz(); S.capMat.emissiveIntensity = 3; S.lamp.material.emissiveIntensity = 4; S.plate.material.emissiveIntensity = 0;
   if (i !== ME) { S.pressT = 0; S.pressed = false; }
@@ -947,6 +961,7 @@ function pickChar(ch) {
   if (G.phase !== 'answering' || G.buzzer !== ME) return;
   const Q = QUESTIONS[G.qi];
   SFX.tick();
+  G.mySaid = Q.y.slice(0, G.ansPos) + ch;
   if (G.online) { if (G.waitChar) return; G.waitChar = true; ui.choices.style.opacity = .5; net.send({ t: 'char', ch }); return; }
   if (ch === Q.y[G.ansPos]) { G.ansPos++; if (G.ansPos >= Q.y.length) judge(true); else showChoices(); }
   else judge(false);
@@ -954,13 +969,13 @@ function pickChar(ch) {
 function judge(ok) {
   ui.answer.style.display = 'none';
   const i = G.buzzer, S = seats[i];
-  G.phase = 'judge'; G.judge = { ok, i, t: 0 };
+  G.phase = 'judge'; G.judge = { ok, i, t: 0, said: i === ME ? G.mySaid || '' : G.cpuAns };
   S.capMat.emissiveIntensity = 0; S.lamp.material.emissiveIntensity = 0;
   if (i === ME) { if (ok) { G.st.ok++; G.st.pos.push(G.st.buzzAt); G.st.best = Math.min(G.st.best, G.st.buzzAt); } else G.st.ng++; }
   if (ok) { G.scores[i] += 10; SFX.correct(); setTimeout(() => SFX.applause(1, 3.2), 250); crowd.clap = 1; }
   else { G.scores[i] -= 5; G.locked.add(i); SFX.wrong(); crowd.gasp = 1; SFX.swell(.06, 1.3); }
   drawVision();
-  G.wait = ok ? 3.6 : 2.0;
+  G.wait = ok ? T.judgeOk : T.judgeNg;
 }
 function afterJudge() {
   const Q = QUESTIONS[G.qi];
@@ -969,7 +984,7 @@ function afterJudge() {
   G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6);
   if (!G.locked.has(ME)) ui.hint.style.opacity = .7;
 }
-function reveal() { G.phase = 'reveal'; G.wait = 3.2; G.shown = QUESTIONS[G.qi].q.length; }
+function reveal() { G.phase = 'reveal'; G.wait = G.judge && G.judge.ok ? T.revealAfterOk : T.reveal; G.shown = QUESTIONS[G.qi].q.length; }
 function nextQuestion() {
   G.qi++;
   if (G.qi >= QUESTIONS.length) { G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; setTimeout(finishMatch, 2200); return; }
@@ -977,10 +992,12 @@ function nextQuestion() {
 }
 function tickGame(dt) {
   const Q = QUESTIONS[G.qi];
+  if (Q) paintNext();
   if (G.online) { // オンラインでは進行はサーバーの合図で動く。ここでは見た目だけ進める
     if (G.phase === 'reading' && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
     else if (G.phase === 'answering') { G.ansT += dt; if (G.buzzer === ME) ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; }
-    else if (G.phase === 'judge') G.judge.t += dt;
+    else if (G.phase === 'judge') { G.judge.t += dt; G.wait -= dt; }
+    else if (G.phase === 'reveal') G.wait -= dt;
     return;
   }
   if (G.phase === 'ready') { G.wait -= dt; if (G.wait <= 0) introQuestion(); }
@@ -998,9 +1015,8 @@ function tickGame(dt) {
     else { // CPUの解答
       const p = G.cpuPlan.find(x => x.i === G.buzzer) || { skill: botParams(G.players[G.buzzer].str).skill }; const n = Math.floor(Math.max(0, G.ansT - .8) / .55);
       if (n > G.cpuAns.length && G.cpuAns.length < Q.y.length) {
-        if (G.cpuAns.length === 0) G.cpuOk = R() < (p ? p.skill : .7);
-        const wrongAt = G.cpuOk ? 99 : Math.floor(R() * Q.y.length);
-        if (G.cpuAns.length === wrongAt || (!G.cpuOk && G.cpuAns.length === Q.y.length - 1)) { G.cpuAns += pick(choicesFor(Q.y[G.cpuAns.length]).filter(x => x !== Q.y[G.cpuAns.length])); judge(false); }
+        if (G.cpuAns.length === 0) { G.cpuOk = R() < (p ? p.skill : .7); G.cpuWrongAt = G.cpuOk ? 99 : Math.floor(R() * Math.min(3, Q.y.length)); }
+        if (G.cpuAns.length === G.cpuWrongAt) { G.cpuAns += pick(choicesFor(Q.y[G.cpuAns.length]).filter(x => x !== Q.y[G.cpuAns.length])); judge(false); }
         else { G.cpuAns += Q.y[G.cpuAns.length]; SFX.tick(); if (G.cpuAns.length >= Q.y.length) judge(true); }
       }
     }
@@ -1068,6 +1084,8 @@ function drawMonitor(t) {
       if (G.phase === 'judge') g.fillText(`${NAMES[G.judge.i]}　${ok ? '○ 正解！' : '× 不正解'}`, 30, by + 50);
       else g.fillText('正解は…', 30, by + 50);
       if (ok || G.phase === 'reveal') g.fillText(`${Q.a}（${Q.y}）`, 30, by + 110);
+      else if (G.judge && G.judge.said) { g.font = `bold 40px ${FONT}`; g.fillText(`答え：「${G.judge.said}」`, 30, by + 110); }
+      else g.fillText('時間切れ', 30, by + 110);
     } else if (G.locked.has(ME)) { g.fillStyle = 'rgba(40,90,255,.5)'; g.fillRect(0, by, w, 150); g.font = `bold 38px ${FONT}`; g.fillStyle = '#fff'; g.fillText('この問題はお休み中', 30, by + 75); }
   }
   monTex.needsUpdate = true;
@@ -1290,7 +1308,7 @@ net.on('char', m => {
   if (cli(m.seat) === ME) { G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1; showChoices(); }
   else { G.cpuAns = QUESTIONS[G.qi].y.slice(0, m.pos); SFX.tick(); }
 });
-net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
+net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); if (!m.ok && m.ch && cli(m.seat) !== ME) G.cpuAns += m.ch; G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
 net.on('reveal', () => { if (G.online) reveal(); });
 net.on('end', m => {
   if (!G.online) return;
@@ -1306,7 +1324,7 @@ net.on('close', () => {
 // ── 試合の開始と終了 ──
 function beginMatch(qs) {
   show(null); QUESTIONS = qs; G.online = false; G.qi = 0; G.scores = [0, 0, 0, 0]; G.st = { ok: 0, ng: 0, pos: [], best: 2, buzzAt: 0 };
-  ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = 1.2; monKey = ''; drawVision();
+  ui.hint.textContent = '画面をタップすると早押し'; G.phase = 'ready'; G.wait = T.ready; G.mySaid = ''; monKey = ''; drawVision();
 }
 const RP_GAIN = [30, 12, -6, -18]; // 1位〜4位
 function finishMatch() {
@@ -1472,6 +1490,8 @@ function onResize() {
   camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
 }
 addEventListener('resize', onResize); onResize();
+addEventListener('orientationchange', () => { setTimeout(onResize, 300); setTimeout(onResize, 900); });
+if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
 drawVision(); drawMonitor(0);
 /* ============ モデルの読み込み ============ */
 const gl = new GLTFLoader();
