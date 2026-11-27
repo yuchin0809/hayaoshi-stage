@@ -2,7 +2,7 @@
 // ・ランクマッチ（近いランクから探して、待つほど範囲をひろげる。30秒でそろわなければCPUで埋める）
 // ・ルーム戦（4けたの部屋番号）
 // ・試合の進行と早押しの判定（だれが一番に押したかは、サーバーに届いた順で決める）
-import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, T, wrongChar } from '../../net.js';
+import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, botRpNear, T, wrongChar } from '../../net.js';
 import lv1 from '../../questions/lv1.json';
 import lv2 from '../../questions/lv2.json';
 import lv3 from '../../questions/lv3.json';
@@ -95,7 +95,8 @@ export class Hub {
         const group = [a, ...mates]; group.forEach(g => taken.add(g));
         const players = group.map(g => ({ cl: g.e.cl, name: g.e.cl.name, rp: g.e.cl.rp }));
         const used = new Set(players.map(p => p.name));
-        while (players.length < 4) { const t = a.range[0] + Math.floor(Math.random() * (a.range[1] - a.range[0] + 1)); const rp = botRpInTier(t); players.push({ cl: null, name: botName(used), rp, str: rankStrength(rp) }); }
+        // 人が足りない席は、待っていた人と同じランク帯のCPUで埋める
+        while (players.length < 4) { const rp = botRpNear(a.e.cl.rp); players.push({ cl: null, name: botName(used), rp, str: rankStrength(rp) }); }
         this.startGame(players, 10, 'rank');
       } else {
         this.send(a.e.cl, { t: 'search', sec: a.sec, range: a.range, players: mates.map(b => ({ name: b.e.cl.name, rp: b.e.cl.rp })) });

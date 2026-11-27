@@ -227,7 +227,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { emblemSVG } from './emblem.js';
-import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, T } from './net.js';
+import { makeNet, rankIdx, tierOf, rankName, TIERS, SUBS, TIER_COLORS, RP_PER, MAX_IDX, LV_MIX, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, T, BOT_FILL_SEC } from './net.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -1214,6 +1214,7 @@ function openMatch() {
     matchRange = range; $('mTime').textContent = `${sec}秒`;
     const same = range[0] === range[1];
     $('mState').textContent = same ? `${TIERS[range[0]]}の人を探しています…` : `${TIERS[range[0]]}〜${TIERS[range[1]]}までひろげて探しています…`;
+    if (net.online && sec >= 10 && players.length < 3) $('mState').textContent += `（あと${Math.max(0, BOT_FILL_SEC - sec)}秒で、同じランクのCPUが入ります）`;
     paintSlots($('mSlots'), [me, ...players]);
   }, (players) => {
     $('mState').textContent = 'そろいました！'; SFX.intro();

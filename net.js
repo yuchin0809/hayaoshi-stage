@@ -42,7 +42,7 @@ export function searchRange(tier, sec) {
   const w = sec < 10 ? 0 : sec < 20 ? 1 : TIERS.length;
   return [Math.max(0, tier - w), Math.min(TIERS.length - 1, tier + w)];
 }
-export const BOT_FILL_SEC = 30;          // これだけ待っても4人そろわなければCPUで埋める
+export const BOT_FILL_SEC = 25;          // これだけ待っても4人そろわなければCPUで埋める
 
 // ランク帯ごとの「問題レベルの混ぜ方」（%）。レベル: 1かんたん 2ふつう 3ややむずかしい 4むずかしい 5難問 6超難問
 export const LV_MIX = [
@@ -76,6 +76,8 @@ export const BOT_NAMES = ['ハルト', 'ミサキ', 'ケンジ', 'ユイ', 'ソ�
   'ゆうき', 'かな', 'しょう', 'みお', 'だいち', 'あかり', 'Q王', 'はやおし太郎', 'ひらめき', 'クイズ好き', 'こたろう', 'まひろ', 'つばさ', 'りん'];
 const rnd = Math.random;
 export function botName(used) { let n; do { n = BOT_NAMES[Math.floor(rnd() * BOT_NAMES.length)]; } while (used.has(n)); used.add(n); return n; }
+// 同じランク（例: ブロンズⅠ〜Ⅲ）の中で、近いポイントのCPU
+export function botRpNear(rp) { const t = tierOf(rp), lo = t * 3 * RP_PER, hi = lo + 3 * RP_PER - 1; return Math.max(lo, Math.min(hi, rp + Math.floor((rnd() - .5) * 120))); }
 export function botRpInTier(t) { return t * 3 * RP_PER + Math.floor(rnd() * 3 * RP_PER); }
 
 // ── サーバーなしで動く版 ──
@@ -88,8 +90,7 @@ export class LocalNet {
     const step = () => {
       const range = searchRange(tier, sec);
       while (players.length < 3 && sec >= arriveAt[players.length]) {
-        const t = range[0] + Math.floor(rnd() * (range[1] - range[0] + 1));
-        players.push({ name: botName(used), rp: botRpInTier(t), bot: true });
+        players.push({ name: botName(used), rp: botRpNear(me.rp), bot: true });
       }
       onUpdate({ sec, range, players: [...players] });
       if (players.length >= 3) { this.timer = setTimeout(() => onFound(players), 900); return; }
