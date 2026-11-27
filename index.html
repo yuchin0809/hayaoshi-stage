@@ -196,6 +196,8 @@
   <div id="roomLobby" style="display:none">
     <p class="sub">部屋の番号</p><div class="code" id="rCodeShow"></div>
     <div class="slots" id="rSlots"></div>
+    <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optRQ">
+      <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="4">激ムズ</button></div></div>
     <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
       <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
     <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
@@ -876,6 +878,7 @@ const SMALL = { 'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ぁ': '
 function choicesFor(c) {
   const pool = new Set();
   if (/[0-9]/.test(c)) '0123456789'.split('').forEach(x => pool.add(x));
+  else if (/[A-Z]/.test(c)) 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(x => pool.add(x));
   else if (c === 'ー') 'ーっんゃゅょ'.split('').forEach(x => pool.add(x));
   else if (SMALL[c]) { pool.add(SMALL[c]); Object.keys(SMALL).forEach(x => pool.add(x)); }
   else {
@@ -1138,7 +1141,7 @@ const net = makeNet();
 const ME_DATA = load('hs_me', { name: 'あなた', rp: 0, peak: 0 });
 const STATS = load('hs_stats', { games: { solo: 0, rank: 0, room: 0 }, wins: 0, ok: 0, ng: 0, posSum: 0, posN: 0, hist: [] });
 function saveMe() { save('hs_me', ME_DATA); save('hs_stats', STATS); }
-G.lv = load('hs_lv', 1); G.n = load('hs_n', 10); G.qd = load('hs_qd', -1); G.rn = load('hs_rn', 10);
+G.lv = load('hs_lv', 1); G.n = load('hs_n', 10); G.qd = load('hs_qd', -1); G.rn = load('hs_rn', 10); G.rq = load('hs_rq', -1);
 
 const PANELS = ['home', 'menu', 'match', 'room', 'stats', 'result'];
 function show(id) { PANELS.forEach(p => $(p).style.display = p === id ? 'flex' : 'none'); }
@@ -1186,7 +1189,7 @@ function segSetup(id, key, prop, after) {
   paint();
 }
 segSetup('optLv', 'hs_lv', 'lv', () => showBest()); segSetup('optN', 'hs_n', 'n', () => showBest()); segSetup('optQ', 'hs_qd', 'qd', () => showBest());
-segSetup('optRN', 'hs_rn', 'rn');
+segSetup('optRN', 'hs_rn', 'rn'); segSetup('optRQ', 'hs_rq', 'rq');
 function bestKey() { return `hs_best_${G.lv}_${G.n}_${G.qd}`; }
 function showBest() { const b = load(bestKey(), null); $('bestTxt').textContent = b ? `この設定の自己ベスト：${b.score}点（${b.rank}位）` : 'この設定はまだ記録なし'; }
 function openSolo() { G.phase = 'menu'; show('menu'); showBest(); }
@@ -1244,7 +1247,7 @@ function showLobby() {
   $('roomEntry').style.display = 'none'; $('roomLobby').style.display = 'block'; $('rCodeShow').textContent = room.code;
   const host = !room.online || room.host;
   $('rBot').style.display = $('rStart').style.display = host ? '' : 'none';
-  $('optRN').parentElement.style.display = host ? '' : 'none';
+  $('optRN').parentElement.style.display = $('optRQ').parentElement.style.display = host ? '' : 'none';
   $('rWait').style.display = host ? 'none' : 'block';
   paintRoom();
 }
@@ -1270,13 +1273,13 @@ $('rBot').addEventListener('click', () => {
 });
 $('rStart').addEventListener('click', () => {
   if (!room) return;
-  if (room.online) { if (room.host) net.startRoom(G.rn); return; }
+  if (room.online) { if (room.host) net.startRoom(G.rn, G.rq); return; }
   while (room.players.length < 3) net.addBot(room, ME_DATA); // 足りない席はCPU
   G.mode = 'room';
   const o = room.players;
   setPlayers([o[0], { name: ME_DATA.name, rp: ME_DATA.rp }, o[1], o[2]]);
   const tiers = G.players.map(p => p.tier);
-  beginMatch(pickQuestions(G.rn, mixForTiers(Math.min(...tiers), Math.max(...tiers))));
+  beginMatch(pickQuestions(G.rn, G.rq >= 0 ? LV_MIX[G.rq] : mixForTiers(Math.min(...tiers), Math.max(...tiers))));
 });
 $('rBack').addEventListener('click', () => { if (room && room.online) net.leaveRoom(); room ? openRoom() : openHome(); });
 function paintRoom() { paintSlots($('rSlots'), room.online ? room.list : [{ name: ME_DATA.name + '（主）', rp: ME_DATA.rp }, ...room.players]); }

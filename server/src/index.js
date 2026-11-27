@@ -2,7 +2,7 @@
 // ・ランクマッチ（近いランクから探して、待つほど範囲をひろげる。30秒でそろわなければCPUで埋める）
 // ・ルーム戦（4けたの部屋番号）
 // ・試合の進行と早押しの判定（だれが一番に押したかは、サーバーに届いた順で決める）
-import { tierOf, searchRange, mixForTiers, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, T, wrongChar } from '../../net.js';
+import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, T, wrongChar } from '../../net.js';
 import lv1 from '../../questions/lv1.json';
 import lv2 from '../../questions/lv2.json';
 import lv3 from '../../questions/lv3.json';
@@ -66,7 +66,7 @@ export class Hub {
       case 'create': this.createRoom(cl, m.n); break;
       case 'join': this.joinRoom(cl, String(m.code || '')); break;
       case 'addbot': this.addBot(cl); break;
-      case 'start': this.startRoom(cl, m.n); break;
+      case 'start': this.startRoom(cl, m.n, m.qd); break;
       case 'leave': this.leaveRoom(cl); break;
       case 'buzz': if (cl.game) cl.game.buzz(cl.seat); break;
       case 'char': if (cl.game && typeof m.ch === 'string') cl.game.char(cl.seat, m.ch.slice(0, 1)); break;
@@ -131,18 +131,18 @@ export class Hub {
     r.members = r.members.filter(c => c !== cl);
     if (!r.members.length) this.rooms.delete(r.code); else this.roomCast(r);
   }
-  startRoom(cl, n) {
+  startRoom(cl, n, qd) {
     const r = cl.room; if (!r || r.members[0] !== cl || r.playing) return;
     if ([5, 10, 20].includes(+n)) r.n = +n;
     const players = [...r.members.map(c => ({ cl: c, name: c.name, rp: c.rp })), ...r.bots.map(b => ({ cl: null, ...b }))];
     const used = new Set(players.map(p => p.name));
     while (players.length < 4) { const rp = botRpInTier(tierOf(cl.rp)); players.push({ cl: null, name: botName(used), rp, str: rankStrength(rp) }); }
     r.playing = true;
-    this.startGame(players, r.n, 'room', r);
+    this.startGame(players, r.n, 'room', r, Number.isInteger(qd) && qd >= 0 && qd < LV_MIX.length ? LV_MIX[qd] : null);
   }
 
-  startGame(players, n, mode, room = null) {
-    const g = new Game(this, players, n, mode, room); this.games.add(g); g.start();
+  startGame(players, n, mode, room = null, weights = null) {
+    const g = new Game(this, players, n, mode, room, weights); this.games.add(g); g.start();
   }
   gameOver(g) {
     this.games.delete(g);
@@ -151,12 +151,12 @@ export class Hub {
 }
 
 class Game {
-  constructor(hub, players, n, mode, room) {
+  constructor(hub, players, n, mode, room, weights) {
     this.hub = hub; this.mode = mode; this.room = room;
     // 席の順番をまぜる
     this.seats = players.sort(() => Math.random() - .5).map(p => ({ ...p, tier: tierOf(p.rp), gone: false }));
     const tiers = this.seats.map(s => s.tier);
-    this.questions = pickQuestions(n, mixForTiers(Math.min(...tiers), Math.max(...tiers)));
+    this.questions = pickQuestions(n, weights || mixForTiers(Math.min(...tiers), Math.max(...tiers)));
     this.scores = [0, 0, 0, 0]; this.qi = 0; this.phase = 'ready'; this.timers = new Set();
     this.seats.forEach((s, i) => { if (s.cl) { s.cl.game = this; s.cl.seat = i; } });
   }

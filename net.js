@@ -8,7 +8,7 @@
 //   {t:'find'} / {t:'cancel'}        ランクマッチを探す／やめる
 //   {t:'create', n}                  ルームを作る（n=問題数）
 //   {t:'join', code}                 ルームに入る
-//   {t:'addbot'} / {t:'start', n}    ルームの主：CPUを入れる／スタート
+//   {t:'addbot'} / {t:'start', n, qd}  ルームの主：CPUを入れる／スタート（qd=むずかしさ -1:おまかせ 0〜4）
 //   {t:'leave'}                      ルームから出る
 //   {t:'buzz'}                       ボタンを押した
 //   {t:'char', ch}                   解答の1文字
@@ -70,7 +70,7 @@ export const CHARS_PER_SEC = 8;
 export const T = { ready: 1.2, intro: 1.3, judgeOk: 2.0, judgeNg: 1.6, revealAfterOk: 1.0, reveal: 2.4, idle: 5 };
 // CPUがまちがえるときに書く文字（正解の文字とちがうもの）
 const KANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわんがぎぐげござじずぜぞだでどばびぶべぼ';
-export function wrongChar(c) { let x; do { x = KANA[Math.floor(Math.random() * KANA.length)]; } while (x === c); return /[0-9]/.test(c) ? String((+c + 1 + Math.floor(Math.random() * 8)) % 10) : x; }
+export function wrongChar(c) { if (/[A-Z]/.test(c)) { let z; do { z = String.fromCharCode(65 + Math.floor(Math.random() * 26)); } while (z === c); return z; } let x; do { x = KANA[Math.floor(Math.random() * KANA.length)]; } while (x === c); return /[0-9]/.test(c) ? String((+c + 1 + Math.floor(Math.random() * 8)) % 10) : x; }
 
 export const BOT_NAMES = ['ハルト', 'ミサキ', 'ケンジ', 'ユイ', 'ソウタ', 'アオイ', 'リク', 'ヒナ', 'タクミ', 'サクラ', 'カイト', 'メイ', 'レン', 'ナナ',
   'ゆうき', 'かな', 'しょう', 'みお', 'だいち', 'あかり', 'Q王', 'はやおし太郎', 'ひらめき', 'クイズ好き', 'こたろう', 'まひろ', 'つばさ', 'りん'];
@@ -140,7 +140,7 @@ export class CloudNet {
   createRoom(me, n) { return this.connect(me).then(() => this.send({ t: 'create', n })); }
   joinRoom(me, code) { return this.connect(me).then(() => this.send({ t: 'join', code })); }
   addBot() { this.send({ t: 'addbot' }); }
-  startRoom(n) { this.send({ t: 'start', n }); }
+  startRoom(n, qd) { this.send({ t: 'start', n, qd }); }
   leaveRoom() { this.send({ t: 'leave' }); }
 }
 
