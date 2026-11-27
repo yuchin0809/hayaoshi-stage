@@ -997,7 +997,8 @@ function tickGame(dt) {
   const Q = QUESTIONS[G.qi];
   if (Q) paintNext();
   if (G.online) { // オンラインでは進行はサーバーの合図で動く。ここでは見た目だけ進める
-    if (G.phase === 'reading' && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
+    if (G.pendingBuzz) { G.pendingT += dt; if (G.pendingT > 1.5) G.pendingBuzz = false; } // 返事が来なければ再開
+    if (G.phase === 'reading' && !G.pendingBuzz && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
     else if (G.phase === 'answering') { G.ansT += dt; if (G.buzzer === ME) ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; }
     else if (G.phase === 'judge') { G.judge.t += dt; G.wait -= dt; }
     else if (G.phase === 'reveal') G.wait -= dt;
@@ -1119,7 +1120,12 @@ function drawVision() {
 function onPress() {
   if (G.phase === 'title' || G.phase === 'menu' || G.phase === 'result') return;
   startMyPress();
-  if (G.online) { if (G.phase === 'reading' && !G.locked.has(ME)) net.send({ t: 'buzz' }); return; }
+  if (G.online) { // 押した瞬間に問題を止めて、サーバーには「どこまで見えていたか」も送る
+    if (G.phase === 'reading' && !G.locked.has(ME) && !G.pendingBuzz) {
+      G.pendingBuzz = true; G.pendingT = 0; net.send({ t: 'buzz', shown: G.shown }); SFX.tick();
+    }
+    return;
+  }
   if (G.phase === 'reading') buzz(ME);
 }
 renderer.domElement.addEventListener('pointerdown', e => { e.preventDefault(); onPress(); });
@@ -1304,9 +1310,9 @@ net.on('read', m => {
   if (!G.online) return;
   if (m.fresh) { G.qi = m.i; startQuestion(); G.cpuPlan = []; }
   else { G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6); if (!G.locked.has(ME)) ui.hint.style.opacity = .7; }
-  G.shown = m.shown; G.acc = 0;
+  G.shown = m.shown; G.acc = 0; G.pendingBuzz = false;
 });
-net.on('buzzed', m => { if (!G.online) return; G.phase = 'reading'; G.shown = m.shown; G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
+net.on('buzzed', m => { if (!G.online) return; G.pendingBuzz = false; G.phase = 'reading'; G.shown = m.shown; G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
 net.on('char', m => {
   if (!G.online || G.phase !== 'answering') return;
   if (cli(m.seat) === ME) { G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1; showChoices(); }

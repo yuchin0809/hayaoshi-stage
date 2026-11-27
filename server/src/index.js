@@ -68,7 +68,7 @@ export class Hub {
       case 'addbot': this.addBot(cl); break;
       case 'start': this.startRoom(cl, m.n, m.qd); break;
       case 'leave': this.leaveRoom(cl); break;
-      case 'buzz': if (cl.game) cl.game.buzz(cl.seat); break;
+      case 'buzz': if (cl.game) cl.game.buzz(cl.seat, m.shown); break;
       case 'char': if (cl.game && typeof m.ch === 'string') cl.game.char(cl.seat, m.ch.slice(0, 1)); break;
     }
   }
@@ -206,9 +206,11 @@ class Game {
       } else if (t > ansLimit(this.Q.y) + 1) this.judge(false);   // 通信の遅れのぶん1秒おまけ
     }
   }
-  buzz(i) {
+  buzz(i, seen) {
     if (this.phase !== 'reading' || this.locked.has(i) || i < 0) return;
-    this.base = this.shown(); this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
+    // 押した人の画面で見えていたところで問題を止める（通信の遅れで先に進まないように）
+    const now = this.shown();
+    this.base = Number.isFinite(seen) ? Math.max(this.base, Math.min(now, Math.floor(seen))) : now; this.phase = 'answering'; this.buzzer = i; this.ansPos = 0; this.ansT0 = Date.now();
     if (!this.seats[i].cl) { const p = this.plans.find(x => x.i === i); const okAns = Math.random() < (p ? p.skill : .7); this.wrongAt = okAns ? 99 : Math.floor(Math.random() * Math.min(3, this.Q.y.length)); }
     this.cast({ t: 'buzzed', seat: i, shown: this.base });
   }
