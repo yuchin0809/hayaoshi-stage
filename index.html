@@ -1476,6 +1476,18 @@ net.on('char', m => {
 });
 net.on('judge', m => { if (!G.online) return; G.buzzer = cli(m.seat); if (!m.ok && m.ch && cli(m.seat) !== ME) G.cpuAns += m.ch; G.waitChar = false; ui.choices.style.opacity = 1; judge(m.ok); });
 net.on('reveal', () => { if (G.online) reveal(); });
+// 1秒ごとのサーバーとの答え合わせ。ラグで問題や読み位置がズレていたら直す
+net.on('sync', m => {
+  if (!G.online || G.phase === 'result' || G.phase === 'menu') return;
+  m.sc.forEach((v, s) => G.scores[cli(s)] = v);
+  if (m.i !== G.qi) { // 問題を取りこぼしていた
+    if (m.ph === 'reading' || m.ph === 'all') { G.qi = m.i; startQuestion(); G.cpuPlan = []; if (m.ph === 'reading') { G.shown = m.s; G.acc = 0; } G.pendingBuzz = false; }
+    else if (m.ph === 'intro') { G.qi = m.i; introQuestion(); }
+    return;
+  }
+  if (m.ph === 'reading' && G.phase === 'reading' && !G.pendingBuzz && m.s - G.shown >= 2) { G.shown = m.s; G.acc = 0; }
+  if (m.ph === 'reveal' && G.phase === 'reading') reveal();
+});
 net.on('mine', m => {
   if (!G.online || G.phase !== 'allAns') return;
   G.ansPos = m.pos; G.waitChar = false; ui.choices.style.opacity = 1;

@@ -216,6 +216,8 @@ class Game {
   }
   onTick() {
     const now = Date.now();
+    // こまめに答え合わせ：1秒ごとに「いまの問題・場面・どこまで読んだか・点数」を全員に送る（ラグでズレた人を直す）
+    if (now - (this.lastSync || 0) >= 1000) { this.lastSync = now; this.cast({ t: 'sync', i: this.qi, ph: this.phase, s: this.shown() || 0, sc: this.scores }); }
     if (this.phase === 'all') return this.allTick();
     if (this.phase === 'reading') {
       const s = this.shown();

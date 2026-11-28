@@ -20,6 +20,7 @@
 //   {t:'begin', mode, seat, players, questions}  試合開始（seat=サーバーでの自分の席）
 //   {t:'intro', i}                           i問目の「第○問」
 //   {t:'read', i, shown, fresh}              読み上げ開始／再開（shown=何文字目から）
+//   {t:'sync', i, ph, s, sc}                 1秒ごとの答え合わせ（問題・場面・読んだ文字数・点数）
 //   {t:'buzzed', seat, shown}                だれかが一番に押した（判定はサーバー）
 //   {t:'char', seat, pos, ch}                正しい1文字（pos=何文字目まで正解）
 //   {t:'judge', seat, ok}                    正解／不正解
