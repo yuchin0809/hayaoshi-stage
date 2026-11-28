@@ -1103,7 +1103,8 @@ function tickGame(dt) {
   if (Q) paintNext();
   if (G.online) { // オンラインでは進行はサーバーの合図で動く。ここでは見た目だけ進める
     if (G.pendingBuzz) { G.pendingT += dt; if (G.pendingT > 1.5) G.pendingBuzz = false; } // 返事が来なければ再開
-    if (G.phase === 'reading' && !G.pendingBuzz && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC; while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; } }
+    // 遅れているとき（G.lag 文字ぶん）は少しだけ速く読んで、なめらかに追いつく
+    if (G.phase === 'reading' && !G.pendingBuzz && G.shown < Q.q.length) { G.acc += dt * CHARS_PER_SEC * (G.lag > 0 ? 1.5 : 1); while (G.acc >= 1 && G.shown < Q.q.length) { G.acc -= 1; G.shown++; if (G.lag > 0) G.lag -= 1 / 3; } }
     else if (G.phase === 'answering') { G.ansT += dt; if (G.buzzer === ME) ui.tbar.style.width = `${Math.max(0, 1 - G.ansT / G.ANS_LIMIT) * 100}%`; }
     else if (G.phase === 'judge') { G.judge.t += dt; G.wait -= dt; }
     else if (G.phase === 'reveal') G.wait -= dt;
@@ -1482,7 +1483,7 @@ net.on('read', m => {
   if (!G.online) return;
   if (m.fresh) { G.qi = m.i; startQuestion(); G.cpuPlan = []; }
   else { G.phase = 'reading'; G.buzzer = -1; G.judge = null; crowd.focus.set(0, 1.4, -9.6); if (!G.locked.has(ME)) ui.hint.style.opacity = .7; }
-  G.shown = m.shown; G.acc = 0; G.pendingBuzz = false;
+  G.shown = m.shown; G.acc = 0; G.lag = 0; G.pendingBuzz = false;
 });
 net.on('buzzed', m => { if (!G.online) return; G.pendingBuzz = false; G.phase = 'reading'; G.shown = Math.min(G.shown, m.shown); /* 先に進めない */ G.waitChar = false; ui.choices.style.opacity = 1; buzz(cli(m.seat)); });
 net.on('char', m => {
@@ -1501,7 +1502,8 @@ net.on('sync', m => {
     else if (m.ph === 'intro') { G.qi = m.i; introQuestion(); }
     return;
   }
-  if (m.ph === 'reading' && G.phase === 'reading' && !G.pendingBuzz && m.s - G.shown >= 2) { G.shown = m.s; G.acc = 0; }
+  // 通信の遅れで1文字ぶんくらい後ろなのはふつう。3文字以上おくれたときだけ、飛ばさずに少し速く読んで追いつく（大きくズレたときだけ飛ばす）
+  if (m.ph === 'reading' && G.phase === 'reading' && !G.pendingBuzz) { const d = m.s - G.shown; if (d >= 10) { G.shown = m.s - 1; G.acc = 0; G.lag = 0; } else if (d >= 3) G.lag = d - 1; else G.lag = 0; }
   if (m.ph === 'reveal' && G.phase === 'reading') reveal();
 });
 net.on('mine', m => {
