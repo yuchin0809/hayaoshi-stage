@@ -78,7 +78,7 @@ export function botParams(st) {
 // CPUが押す位置（問題の何文字目か）。全部読み終わってから押すことはしない
 export function botBuzzAt(len, L) { return Math.floor(len * clamp(L.from + Math.random() * L.span, .25, .9)); }
 export function rankStrength(rp) { return .1 + rankIdx(rp) / MAX_IDX * .65; }
-export function ansLimit(y) { return Math.max(10, 3 + y.length * 1.3); }   // 解答の制限時間（秒）
+export function ansLimit(y) { return Math.max(5, 2 + y.length * .8); }   // 解答の制限時間（秒）。写真をAIに聞く時間がないよう短め
 export const CHARS_PER_SEC = 8;
 // 進行の待ち時間（秒）。ゲームとサーバーで同じ値を使う
 // vs=全員のプロフィール、fly=会場を上から映してから自分の席へ。ready はその合計
