@@ -589,10 +589,16 @@ function poseArms(h, handLPos, handRPos, leanZ = 0) {
 const NAMES = ['ハルト', 'あなた', 'ミサキ', 'ケンジ', ...Array(11).fill('')];
 const ME = 1;
 // 自分の席が一番うしろ。ほかの3人が視界に入るよう、扇形に配置
-const SEAT_POS = [[-2.3, -3.6], [0, -.6], [2.3, -3.6], [4.2, -6.0]];
-// ルーム戦で5人以上のときの席（司会者を中心に、ほかの人と重ならず、自分からモニターが隠れない位置）
-for (const [r, a] of [[4.3, -1.05], [4.3, -.55], [4.3, .45], [4.3, 1.15], [6.0, -.85], [6.0, -1.35], [6.0, 1.35], [7.6, -.7], [7.6, .62], [7.6, -1.1], [7.6, 1.1]])
-  SEAT_POS.push([+(r * Math.sin(a)).toFixed(2), +(-9.6 + r * Math.cos(a)).toFixed(2)]);
+const MY_POS = [0, -.6];
+// 人数ごとの席の位置（自分以外）。4人までは今までどおり、5人以上は司会者を中心に2列の扇形
+function seatLayout(n) {
+  if (n <= 4) return [[-2.3, -3.6], [2.3, -3.6], [4.2, -6.0]].slice(0, n - 1);
+  // 司会者からの距離と角度。自分（真うしろ）からモニターと司会者が隠れないよう、真ん中はあける
+  const slots = [[7, -.34], [7, .34], [7, -.58], [7, .58], [4.5, -.5], [4.5, .5], [7, -.82], [7, .82],
+    [4.5, -.82], [4.5, .82], [7, -1.06], [7, 1.06], [4.5, -1.14], [4.5, 1.14]];
+  return slots.slice(0, n - 1).sort((a, b) => a[1] - b[1] || b[0] - a[0])
+    .map(([r, a]) => [+(r * Math.sin(a)).toFixed(2), +(-9.6 + r * Math.cos(a)).toFixed(2)]);
+}
 const seats = [];
 
 // モニターの画面（全員で共有）
@@ -609,8 +615,7 @@ function namePlate(name) {
 }
 
 function makeSeat(i) {
-  const g = new THREE.Group(); g.position.set(SEAT_POS[i][0], 0, SEAT_POS[i][1]);
-  g.rotation.y = Math.atan2(g.position.x - HOST.x, g.position.z - HOST.z); scene.add(g);
+  const g = new THREE.Group(); scene.add(g);
   const S = { g, i };
   // 机
   box(1.16, .045, .64, M.wood, 0, .742, 0, g);
@@ -651,7 +656,21 @@ function makeSeat(i) {
   S.pressT = -1; S.pressed = false;
   seats.push(S); return S;
 }
+// 席を人数に合わせて並べなおす（自分の席は動かさない）
+function placeSeats(n) {
+  const pos = seatLayout(n); let k = 0;
+  seats.forEach((S, i) => {
+    if (i >= n) return;
+    const [x, z] = i === ME ? MY_POS : pos[k++];
+    S.g.position.set(x, 0, z); S.g.rotation.y = Math.atan2(x - HOST.x, z - HOST.z);
+  });
+  // 床のカーペットも人数に合わせて広げる
+  const big = n > 4, r = big ? 7.2 : 4.6;
+  rug.position.set(big ? 0 : .7, .005, big ? -4.6 : -3.6); rug.scale.setScalar(r / 4.6);
+  rugEdge.position.set(big ? 0 : .7, .007, big ? -4.6 : -3.6); rugEdge.scale.setScalar(r / 4.6);
+}
 for (let i = 0; i < 4; i++) makeSeat(i);
+placeSeats(4);
 
 // 司会台
 const podium = new THREE.Group(); podium.position.set(HOST.x, .5, HOST.z); scene.add(podium);
@@ -756,6 +775,7 @@ function ensureSeats(n) {
     if (seatModels) { const src = seatModels[S.i % seatModels.length]; S.rig = setupAvatar({ scene: cloneSkinned(src.scene) }, S.g); }
   }
   seats.forEach((S, i) => S.g.visible = i < n);
+  placeSeats(n);
 }
 
 /* ============ 観客 ============ */
@@ -1145,9 +1165,11 @@ function drawMonitor(t) {
   g.textAlign = 'left';
   if (G.phase === 'result') {
     const order = [...Array(G.N).keys()].sort((a, b) => G.scores[b] - G.scores[a]);
-    const top = order.slice(0, 5); if (!top.includes(ME)) top[4] = ME; // 自分はかならず出す
-    g.font = `bold ${G.N > 4 ? 46 : 52}px ${FONT}`;
-    top.forEach((p, k) => { const pl = G.scores.filter(v => v > G.scores[p]).length + 1; g.fillStyle = p === ME ? '#ffcc33' : '#fff'; g.fillText(`${pl}位  ${NAMES[p]}　${G.scores[p]}点`, 60, 160 + k * (G.N > 4 ? 82 : 92)); });
+    // 全員の順位を出す（人数が多いときは2列・小さめの文字）
+    const cols = G.N > 5 ? 2 : 1, per = Math.ceil(G.N / cols), lh = Math.min(92, 440 / per);
+    g.font = `bold ${Math.round(Math.min(52, lh * .62))}px ${FONT}`;
+    order.forEach((p, k) => { const pl = G.scores.filter(v => v > G.scores[p]).length + 1; g.fillStyle = p === ME ? '#ffcc33' : '#fff';
+      g.fillText(`${pl}位  ${NAMES[p]}　${G.scores[p]}点`, 60 + Math.floor(k / per) * (w / 2 - 20), 150 + (k % per) * lh, w / cols - 80); });
   } else if (G.phase === 'title' || G.phase === 'ready' || G.phase === 'menu' || G.phase === 'intro') {
     if (G.phase === 'intro') { g.font = `bold 96px ${FONT}`; g.fillStyle = '#ffcc33'; g.textAlign = 'center'; g.fillText(G.qi === QUESTIONS.length - 1 ? '最終問題' : `第${G.qi + 1}問`, w / 2, 250);
       g.font = `36px ${FONT}`; g.fillStyle = '#9fb3d9'; g.fillText('まもなく出題', w / 2, 360); g.textAlign = 'left'; monTex.needsUpdate = true; return; }
@@ -1432,6 +1454,7 @@ net.on('room', m => {
 net.on('error', m => { $('rErr').textContent = m.msg; });
 net.on('begin', m => {
   SEAT = m.seat; G.mode = m.mode; G.style = m.style || 'buzz'; G.lim = m.lim || 20;
+  G.N = m.players.length; // 先に人数を合わせてから席を割りあてる（4人のままだと5人目以降が消えていた）
   const list = []; m.players.forEach((p, s) => list[cli(s)] = { name: p.name, rp: p.rp });
   setPlayers(list);
   beginMatch(m.questions); G.online = true;
@@ -1705,8 +1728,9 @@ function showProg() { document.getElementById('load').textContent = `会場を�
     const [aud, ...chars] = await Promise.all([loadGLB('audience'), ...names.map(loadGLB), loadQuestions()]);
     const byName = {}; names.forEach((n, i) => byName[n] = chars[i]);
     buildAudience(aud);
-    for (let i = 0; i < 4; i++) seats[i].rig = setupAvatar(byName[AVATARS[i]], seats[i].g);
     seatModels = [0, 2, 3, 1].map(i => byName[AVATARS[i]]);
+    // 読みこみ前にふえた席（5人目から）にも人を座らせる
+    seats.forEach((S, i) => S.rig = i < 4 ? setupAvatar(byName[AVATARS[i]], S.g) : setupAvatar({ scene: cloneSkinned(seatModels[i % 4].scene) }, S.g));
     hostRig = setupAvatar(byName[AVATARS.host], hostSpot);
     // 自分の目がカメラの位置に来るように体を合わせる
     const r = me.rig; r.reset(); r.placePelvis(me.g.localToWorld(SEAT_PELVIS.clone())); r.sit(.06);
