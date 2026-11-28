@@ -46,7 +46,11 @@ export class Hub {
     this.matchTimer = null;
     this.env = env; this.clients = new Set(); this.admins = new Set(); this.adminTimer = null;
     this.bans = { did: {}, ip: {} };   // BANリスト（サーバーの保存場所に残す）
-    state.blockConcurrencyWhile(async () => { const b = await state.storage.get('bans'); if (b) this.bans = b; });
+    this.recs = new Map();             // 一度来た人の記録（端末ID → {did,name,rp,ip,first,last,st,warned,pendingWarn}）
+    state.blockConcurrencyWhile(async () => {
+      const b = await state.storage.get('bans'); if (b) this.bans = b;
+      const all = await state.storage.list({ prefix: 'p:' }); for (const [, r] of all) this.recs.set(r.did, r);
+    });
   }
 
   fetch(req) {
@@ -76,12 +80,18 @@ export class Hub {
   }
   adminList() {
     const where = c => c.game ? (c.game.mode === 'rank' ? 'ランクマッチ中' : 'ルーム戦中') : c.room ? `ルーム${c.room.code}` : this.queue.some(e => e.cl === c) ? 'さがし中' : 'ホーム';
-    const players = [...this.clients].filter(c => !c.admin && !c.gone).map(c => ({ id: c.id, name: c.name, rp: c.rp, dev: c.did.slice(0, 6), where: where(c), st: c.st, sus: this.sus(c.st), warned: c.warned }));
-    const now = Date.now(), bans = [];
+    const now = Date.now(), online = [...this.clients].filter(c => !c.admin && !c.gone);
+    const row = (k, r, c) => ({ k, name: (c || r).name, rp: (c || r).rp, dev: (r ? r.did : '').slice(0, 6), online: !!c, where: c ? where(c) : '', last: r ? r.last : now,
+      st: r ? r.st : c.st, sus: this.sus(r ? r.st : c.st), warned: r ? r.warned : c.warned, banned: r ? this.isBanned({ did: r.did, ip: '' }) : false });
+    const players = [...this.recs.values()].map(r => row(r.did, r, online.find(c => c.did === r.did)));
+    online.filter(c => !c.did || !this.recs.has(c.did)).forEach(c => players.push(row('c' + c.id, null, c)));   // 古い画面でIDがない人
+    players.sort((a, b) => b.online - a.online || b.sus - a.sus || b.last - a.last);
+    const bans = [];
     for (const [k, v] of Object.entries(this.bans.did)) if (!v.until || v.until > now) bans.push({ kind: 'did', key: k, name: v.name, at: v.at, until: v.until || 0 });
     for (const [k, v] of Object.entries(this.bans.ip)) if (v.until > now) bans.push({ kind: 'ip', key: k, name: v.name, at: v.at, until: v.until });
-    return { t: 'list', players, bans };
+    return { t: 'list', players: players.slice(0, 300), total: players.length, bans };
   }
+  saveRec(r) { if (r) this.state.storage.put('p:' + r.did, r).catch(() => {}); }
   pushAdmin() { const m = this.adminList(); this.admins.forEach(a => this.send(a, m)); }
   async saveBans() {
     const now = Date.now();   // 期限切れは消す
@@ -101,14 +111,19 @@ export class Hub {
       return;
     }
     if (!cl.admin) return;
-    const target = [...this.clients].find(c => c.id === m.id && !c.gone);
-    if (m.t === 'warn' && target) { target.warned++; this.send(target, { t: 'warn' }); }
-    if (m.t === 'ban' && target) {
+    // k = 端末ID（つながっていない人もOK）か 'c'+接続番号（IDのない古い画面の人）
+    const k = String(m.k || ''), rec = this.recs.get(k), live = [...this.clients].filter(c => !c.admin && !c.gone && (rec ? c.did === k : 'c' + c.id === k));
+    const name = rec ? rec.name : live[0] && live[0].name, did = rec ? rec.did : live[0] && live[0].did, ip = live[0] ? live[0].ip : rec && rec.ip;
+    if (m.t === 'warn' && name) {
+      if (rec) { rec.warned++; rec.pendingWarn = !live.length; this.saveRec(rec); } else live.forEach(c => c.warned++);
+      live.forEach(c => this.send(c, { t: 'warn' }));   // いない人には次に来たときに出す
+    }
+    if (m.t === 'ban' && name) {
       const at = Date.now(), days = [1, 7, 30, 0].includes(+m.days) ? +m.days : 0;
-      if (target.did) this.bans.did[target.did] = { name: target.name, at, until: days ? at + days * 864e5 : 0 };
-      if (target.ip) this.bans.ip[target.ip] = { name: target.name, at, until: at + Math.min(days || 7, 7) * 864e5 };   // 回線は家族やお店と同じこともあるので最大7日
+      if (did) this.bans.did[did] = { name, at, until: days ? at + days * 864e5 : 0 };
+      if (ip) this.bans.ip[ip] = { name, at, until: at + Math.min(days || 7, 7) * 864e5 };   // 回線は家族やお店と同じこともあるので最大7日
       this.saveBans();
-      [...this.clients].filter(c => !c.admin && !c.gone && ((target.did && c.did === target.did) || c === target)).forEach(c => this.kickBanned(c));
+      live.forEach(c => this.kickBanned(c));
     }
     if (m.t === 'unban' && typeof m.key === 'string') {
       // 同じ人のIDと回線をまとめて解除する
@@ -128,6 +143,14 @@ export class Hub {
         cl.name = cleanName(m.name); cl.rp = Math.max(0, Math.min(5000, Math.floor(+m.rp || 0)));
         cl.did = String(m.did || '').replace(/[^\w-]/g, '').slice(0, 40);
         if (this.isBanned(cl)) return this.kickBanned(cl);
+        if (cl.did) {   // 一度来た人として覚える（管理画面に出す）
+          const now = Date.now();
+          let r = this.recs.get(cl.did);
+          if (!r) { r = { did: cl.did, first: now, st: { ok: 0, ng: 0, hard: 0, late: 0, games: 0 }, warned: 0 }; this.recs.set(cl.did, r); }
+          Object.assign(r, { name: cl.name, rp: cl.rp, ip: cl.ip, last: now }); cl.st = r.st;
+          if (r.pendingWarn) { r.pendingWarn = false; this.send(cl, { t: 'warn' }); }
+          this.saveRec(r);
+        }
         break;
       case 'find': if (cl.game) return; this.leaveRoom(cl); this.dequeue(cl); this.queue.push({ cl, t0: Date.now() }); this.startMatchTimer(); this.matchTick(); break;
       case 'cancel': this.dequeue(cl); break;
@@ -342,7 +365,7 @@ class Game {
     const ms = this.lastOk ? REVEAL_OK_MS : REVEAL_MS; this.lastOk = false;
     this.later(ms, () => { if (this.qi + 1 >= this.questions.length) this.end(); else this.intro(this.qi + 1); });
   }
-  end() { this.cast({ t: 'end', scores: this.scores }); this.seats.forEach(s => { if (s.cl) s.cl.st.games++; }); this.stop(); }
+  end() { this.cast({ t: 'end', scores: this.scores }); this.seats.forEach(s => { if (s.cl) { s.cl.st.games++; const r = this.hub.recs.get(s.cl.did); if (r) { r.last = Date.now(); this.hub.saveRec(r); } } }); this.stop(); }
   // 管理画面の「怪しさ」用に、人の答えの記録をとる（むずかしい問題の正解・問題が全部出てからの正解）
   note(i, ok, late) {
     const cl = this.seats[i] && this.seats[i].cl; if (!cl) return;

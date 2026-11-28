@@ -35,7 +35,7 @@
 
 <div id="main">
   <div class="msg">怪しさは「自分のランクより難しい問題の正解」「問題が全部出てからの長い答えの正解」「正解率」から出しています。高くても本当に強い人のこともあるので、まずは警告がおすすめです。</div>
-  <h2>いまつながっている人 <span id="cnt"></span></h2>
+  <h2>来たことのある人 <span id="cnt"></span></h2>
   <div id="list"></div>
   <h2>BANした人</h2>
   <div id="bans"></div>
@@ -74,17 +74,17 @@ const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
 
 function draw(m) {
   players = m.players.sort((a, b) => b.sus - a.sus || b.st.ok - a.st.ok);
-  $('cnt').textContent = `（${players.length}人）`;
+  $('cnt').textContent = `（${m.total ?? players.length}人・いま${players.filter(p => p.online).length}人）`;
   $('list').innerHTML = players.length ? players.map(p => {
     const n = p.st.ok + p.st.ng, acc = n ? Math.round(p.st.ok / n * 100) : 0;
     return `<div class="card p"><div class="nm">${esc(p.name)}</div>
-      <div class="info"><span class="sus s${p.sus}">怪しさ：${SUS[p.sus]}</span> ${esc(rankName(p.rp))} ・ ${esc(p.where)}<br>
+      <div class="info"><span class="sus s${p.sus}">怪しさ：${SUS[p.sus]}</span> ${esc(rankName(p.rp))} ・ ${p.online ? `<b style="color:var(--grn)">● いま ${esc(p.where)}</b>` : '最後に来た日 ' + new Date(p.last).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${p.banned ? ' ・ <b style="color:var(--red)">BAN中</b>' : ''}<br>
       正解 ${p.st.ok} / 不正解 ${p.st.ng}（${acc}%）・ 格上の難問の正解 ${p.st.hard} ・ 全部出てからの正解 ${p.st.late} ・ 試合 ${p.st.games}<br>
       端末 ${esc(p.dev)}${p.warned ? ` ・ <b style="color:var(--ylw)">警告 ${p.warned}回</b>` : ''}</div>
-      <div class="act"><button class="warn" data-w="${p.id}">警告</button>
-      <select data-d="${p.id}">${[[1, '1日'], [7, '7日'], [30, '30日'], [0, 'ずっと']].map(([v, l]) => `<option value="${v}"${(sel[p.id] ?? 7) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
-      <button class="ban" data-b="${p.id}">BAN</button></div></div>`;
-  }).join('') : '<div class="empty">いまはだれもつながっていません</div>';
+      <div class="act"><button class="warn" data-w="${esc(p.k)}">警告</button>
+      <select data-d="${esc(p.k)}">${[[1, '1日'], [7, '7日'], [30, '30日'], [0, 'ずっと']].map(([v, l]) => `<option value="${v}"${(sel[p.k] ?? 7) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      ${p.banned ? '' : `<button class="ban" data-b="${esc(p.k)}">BAN</button>`}</div></div>`;
+  }).join('') : '<div class="empty">まだだれも来ていません</div>';
   $('bans').innerHTML = m.bans.length ? m.bans.map(b => `<div class="card p"><div class="nm">${esc(b.name)}</div>
       <div class="info">${b.kind === 'ip' ? '回線' : '端末'}のBAN ・ ${new Date(b.at).toLocaleString('ja-JP')}〜${b.until ? new Date(b.until).toLocaleString('ja-JP') + 'まで' : 'ずっと'}</div>
       <div class="act"><button data-u="${esc(b.key)}">解除</button></div></div>`).join('') : '<div class="empty">いません</div>';
@@ -92,10 +92,10 @@ function draw(m) {
 document.addEventListener('change', e => { if (e.target.dataset.d) sel[e.target.dataset.d] = +e.target.value; });
 document.addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
-  const p = id => players.find(x => x.id === +id);
-  if (t.dataset.w) { const x = p(t.dataset.w); if (x && confirm(`${x.name} に警告を出しますか？`)) send({ t: 'warn', id: x.id }); }
+  const p = k => players.find(x => x.k === k);
+  if (t.dataset.w) { const x = p(t.dataset.w); if (x && confirm(`${x.name} に警告を出しますか？${x.online ? '' : '（いまはいないので、次に来たときに出ます）'}`)) send({ t: 'warn', k: x.k }); }
   if (t.dataset.b) { const x = p(t.dataset.b), d = +document.querySelector(`select[data-d="${t.dataset.b}"]`).value;
-    if (x && confirm(`${x.name} を${d ? d + '日' : 'ずっと'}BANしますか？`)) send({ t: 'ban', id: x.id, days: d }); }
+    if (x && confirm(`${x.name} を${d ? d + '日' : 'ずっと'}BANしますか？`)) send({ t: 'ban', k: x.k, days: d }); }
   if (t.dataset.u && confirm('BANを解除しますか？')) send({ t: 'unban', key: t.dataset.u });
 });
 </script>
