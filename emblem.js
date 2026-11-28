@@ -1,4 +1,4 @@
-// ランクのマーク（SVG）。ビギナー＝若葉、ブロンズ＝稲妻の盾、シルバー＝翼の盾、プラチナ＝氷のダイヤ、ゴールド＝王冠と月桂樹、マスター＝炎の翼と王冠のクリスタル（光がまわる）。
+// ランクのマーク（SVG）。ビギナー＝若葉、ブロンズ＝稲妻の盾、シルバー＝翼の盾、ゴールド＝王冠と月桂樹、プラチナ＝氷のダイヤ、マスター＝炎の翼と王冠のクリスタル（光がまわる）。
 // Ⅰ〜Ⅲは下のリボンに書く。
 import { rankIdx, SUBS } from './net.js';
 
@@ -7,8 +7,8 @@ const PAL = [
   ['#d9ffd0', '#5fcf6e', '#1f6b35'],   // ビギナー
   ['#ffd2a6', '#c9773d', '#5e2e10'],   // ブロンズ
   ['#ffffff', '#b9c3d6', '#4d5870'],   // シルバー
-  ['#f2ffff', '#6fdcf0', '#0f5566'],   // プラチナ
   ['#fff3b0', '#f2b81f', '#7a4f00'],   // ゴールド
+  ['#f2ffff', '#6fdcf0', '#0f5566'],   // プラチナ
   ['#ffd6ff', '#a54dff', '#2a0a5e'],   // マスター
 ];
 const SHIELD = 'M50 10 L82 22 L80 54 Q76 78 50 92 Q24 78 20 54 L18 22 Z';
@@ -35,7 +35,7 @@ export function emblemSVG(rp, size = 64) {
       <path d="M${50 + d * 26} 48 Q${50 + d * 40} 42 ${50 + d * 44} 30" stroke="${lo}" stroke-width="1.6" fill="none"/>`;
     body = wing(-1) + wing(1) + `<path d="${SHIELD}" transform="translate(50 52) scale(.72) translate(-50 -52)" ${F}/>
       <path d="M50 30 L55 44 L70 44 L58 53 L62 68 L50 59 L38 68 L42 53 L30 44 L45 44 Z" fill="#fff" stroke="${lo}" stroke-width="1.6" stroke-linejoin="round"/>`;
-  } else if (t === 3) {
+  } else if (t === 4) {
     const fin = d => `<path d="M${50 + d * 20} 34 L${50 + d * 46} 22 L${50 + d * 36} 44 L${50 + d * 44} 50 L${50 + d * 24} 62 Z" ${F}/>
       <path d="M${50 + d * 24} 40 L${50 + d * 40} 30" stroke="#fff" stroke-width="1.6" opacity=".7"/>`;
     const sp = (x, y, r) => `<path d="M${x} ${y - r} L${x + r * .28} ${y - r * .28} L${x + r} ${y} L${x + r * .28} ${y + r * .28} L${x} ${y + r} L${x - r * .28} ${y + r * .28} L${x - r} ${y} L${x - r * .28} ${y - r * .28} Z" fill="#fff"/>`;
@@ -44,7 +44,7 @@ export function emblemSVG(rp, size = 64) {
       <polygon points="50,28 66,40 50,74 34,40" fill="#fff" stroke="${lo}" stroke-width="1.8" stroke-linejoin="round"/>
       <path d="M34 40 H66 M50 28 L43 40 L50 74 L57 40 Z" stroke="${mid}" stroke-width="1.4" fill="none"/>
       <polygon points="50,28 57,40 43,40" fill="${hi}"/>` + sp(30, 20, 6) + sp(72, 70, 5) + sp(68, 16, 3.5);
-  } else if (t === 4) {
+  } else if (t === 3) {
     const leaves = d => [0, 1, 2, 3, 4].map(k => {
       const a = (200 - k * 26) * Math.PI / 180, x = 50 + d * Math.cos(a) * -34, y = 56 - Math.sin(a) * 34;
       return `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="7" ry="3.6" transform="rotate(${(d * (k * 26 - 20)).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="url(#${id}a)" stroke="${lo}" stroke-width="1.4"/>`;

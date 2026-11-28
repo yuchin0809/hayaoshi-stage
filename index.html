@@ -201,7 +201,7 @@
   <div class="row"><div class="lab">相手の強さ</div><div class="seg" id="optLv">
     <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>かなり速い</small></button></div></div>
   <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optQ">
-    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button><button data-v="5">激ムズ</button></div></div>
+    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="5">激ムズ</button></div></div>
   <div class="row"><div class="lab">問題の数</div><div class="seg" id="optN">
     <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
   <button class="btn go" id="goBtn">スタート</button>
@@ -231,7 +231,7 @@
     <div class="row"><div class="lab">制限時間</div><div class="seg" id="optRL">
       <button data-v="10">10秒</button><button data-v="20">20秒</button><button data-v="30">30秒</button></div></div>
     <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optRQ">
-      <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button><button data-v="5">激ムズ</button></div></div>
+      <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="5">激ムズ</button></div></div>
     <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
       <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
     <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn sec" id="rKick">CPUを減らす</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
@@ -1289,14 +1289,15 @@ const net = makeNet();
 const ME_DATA = load('hs_me', { name: 'あなた', rp: 0, peak: 0 });
 const STATS = load('hs_stats', { games: { solo: 0, rank: 0, room: 0 }, wins: 0, ok: 0, ng: 0, posSum: 0, posN: 0, hist: [] });
 function saveMe() { save('hs_me', ME_DATA); save('hs_stats', STATS); }
-// プラチナ追加（ゴールドの前）にあわせて、前のデータをずらす（1回だけ）
-if (!load('hs_v6', false)) {
-  if (ME_DATA.rp >= 900) ME_DATA.rp += 300; if ((ME_DATA.peak || 0) >= 900) ME_DATA.peak += 300;
-  STATS.hist.forEach(h => { if (h.rp >= 900) h.rp += 300; });
-  ['hs_qd', 'hs_rq'].forEach(k => { const v = load(k, -1); if (v >= 3) save(k, v + 1); });
-  try { const ks = Object.keys(localStorage).filter(k => /^hs_best_.+_[34]$/.test(k)).sort().reverse();
-    ks.forEach(k => { const nk = k.replace(/_(\d)$/, (_, d) => '_' + (+d + 1)); localStorage.setItem(nk, localStorage.getItem(k)); localStorage.removeItem(k); }); } catch (e) {}
-  saveMe(); save('hs_v6', true);
+// プラチナ追加（ゴールドとマスターの間）にあわせて、前のデータをずらす（1回だけ）
+if (!load('hs_v7', false)) {
+  const v6 = load('hs_v6', false);   // 少しのあいだ「ゴールドの前」に入れていた版で、もうずらした人
+  const fix = r => v6 ? (r >= 1200 && r < 1500 ? r - 300 : r) : (r >= 1200 ? r + 300 : r);
+  ME_DATA.rp = fix(ME_DATA.rp); ME_DATA.peak = fix(ME_DATA.peak || 0); STATS.hist.forEach(h => { h.rp = fix(h.rp); });
+  const from = v6 ? 4 : 4, to = v6 ? 3 : 5;
+  ['hs_qd', 'hs_rq'].forEach(k => { if (load(k, -1) === from) save(k, to); });
+  try { Object.keys(localStorage).filter(k => new RegExp('^hs_best_.+_' + from + '$').test(k)).forEach(k => { const nk = k.replace(/_\d$/, '_' + to); localStorage.setItem(nk, localStorage.getItem(k)); localStorage.removeItem(k); }); } catch (e) {}
+  saveMe(); save('hs_v7', true);
 }
 // 端末ごとの見えないID（アカウントなしで警告・BANするため）
 if (!ME_DATA.did) { try { ME_DATA.did = crypto.randomUUID(); } catch (e) { ME_DATA.did = Date.now().toString(36) + Math.random().toString(36).slice(2, 12); } saveMe(); }

@@ -32,9 +32,9 @@
 //                       {t:'done', seat}（だれかが答え終わった） {t:'allEnd', oks, scores}（時間切れ・全員終わり）
 // ──────────────────────────────────────────────────────
 
-export const TIERS = ['ビギナー', 'ブロンズ', 'シルバー', 'プラチナ', 'ゴールド', 'マスター'];
+export const TIERS = ['ビギナー', 'ブロンズ', 'シルバー', 'ゴールド', 'プラチナ', 'マスター'];
 export const SUBS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
-export const TIER_COLORS = ['#9fd8a8', '#d8915a', '#cfd6e4', '#8ff0ff', '#ffcc33', '#c58bff'];
+export const TIER_COLORS = ['#9fd8a8', '#d8915a', '#cfd6e4', '#ffcc33', '#8ff0ff', '#c58bff'];
 export const RP_PER = 100;               // ひとつ上がるのに必要なポイント
 export const MAX_IDX = TIERS.length * 3 - 1;
 export function rankIdx(rp) { return Math.max(0, Math.min(MAX_IDX, Math.floor(rp / RP_PER))); }
@@ -63,8 +63,8 @@ export const LV_MIX = [
   [10, 40, 35, 15, 0, 0],  // ビギナー
   [0, 15, 40, 35, 10, 0],  // ブロンズ
   [0, 0, 20, 40, 30, 10],  // シルバー
-  [0, 0, 10, 30, 40, 20],  // プラチナ
   [0, 0, 0, 20, 45, 35],   // ゴールド
+  [0, 0, 0, 10, 40, 50],   // プラチナ
   [0, 0, 0, 0, 25, 75],    // マスター（ほぼ超難問）
 ];
 // 部屋の中でいちばん低いランク帯〜高いランク帯の混ぜ方を平均して使う
