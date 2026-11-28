@@ -270,12 +270,14 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 /* ============ 基本設定 ============ */
 const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+// スマホ（iPadより画面が小さい端末）は、ぼかし効果などを使わない軽い描き方にする
+const isPhone = isMobile && Math.min(screen.width, screen.height) < 600;
 const FONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic","WenQuanYi Zen Hei",sans-serif';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 // #lq がついていたら軽い画質（スマホで描けなかったときに自動でつく）
 const LQ = location.hash.includes('lq');
-let pixelRatio = Math.min(devicePixelRatio, LQ ? 1 : isMobile ? 1.5 : 2);
+let pixelRatio = Math.min(devicePixelRatio, LQ ? 1 : isPhone ? 1.25 : isMobile ? 1.5 : 2);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -298,12 +300,12 @@ camera.rotation.order = 'YXZ';
 const glc = renderer.getContext();
 const canHalf = renderer.capabilities.isWebGL2 && !!(glc.getExtension('EXT_color_buffer_half_float') || glc.getExtension('EXT_color_buffer_float'));
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio,
-  { samples: canHalf ? (isMobile ? 2 : 4) : 0, type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType }));
+  { samples: canHalf && !isPhone ? (isMobile ? 2 : 4) : 0, type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType }));
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.9);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
-let useBloom = !LQ;
+let useBloom = !LQ && !isPhone;
 // 端末の描画が止まった（メモリ不足など）ときは、軽い画質で開き直す
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); goLQ(); });
 function goLQ() {
@@ -1685,12 +1687,12 @@ function frame() {
 // 画面が真っ黒のままなら、描き方を軽くする
 let bcNext = 0, bcDark = 0, bcDone = 0; const bcPix = new Uint8Array(4);
 function blackCheck(t) {
-  if (bcDone >= 6 || t < bcNext) return;
+  if (t < bcNext) return;
   if (!bcNext) { bcNext = t + .8; return; }
-  bcNext = t + .5;
+  bcNext = t + (bcDone >= 6 ? 2 : .5); // 最初だけ細かく、あとも試合中ずっと見はる
   renderer.setRenderTarget(null);
   const W = glc.drawingBufferWidth, H = glc.drawingBufferHeight; let mx = 0;
-  for (const [x, y] of [[.3, .12], [.5, .2], [.7, .12], [.5, .5], [.2, .4], [.8, .4]]) {
+  for (const [x, y] of [[.3, .12], [.5, .2], [.7, .12], [.5, .5], [.2, .4], [.8, .4], [.5, .8], [.4, .75], [.6, .75]]) {
     glc.readPixels(Math.floor(W * x), Math.floor(H * y), 1, 1, glc.RGBA, glc.UNSIGNED_BYTE, bcPix);
     mx = Math.max(mx, bcPix[0] + bcPix[1] + bcPix[2]);
   }
@@ -1698,7 +1700,7 @@ function blackCheck(t) {
   if (++bcDark < 3) return;
   bcDark = 0; bcDone = 0;
   if (useBloom) { useBloom = false; console.warn('黒い画面 → ぼかし効果なしで描く'); }
-  else goLQ();
+  else if (G.phase === 'title' || G.phase === 'menu') goLQ(); // 試合中は開き直さない（対戦が切れるため）
 }
 function onResize() {
   camera.aspect = innerWidth / innerHeight;
