@@ -59,6 +59,7 @@ function open(key) {
   $('lmsg').textContent = 'つないでいます…';
   if (ws) ws.close();
   ws = new WebSocket(SERVER_URL);
+  const w0 = ws; setTimeout(() => { if (ws === w0 && $('lmsg').textContent === 'つないでいます…') $('lmsg').textContent = 'サーバーから返事がありません。サーバーが古いままかもしれません（もう一度 deploy してください）'; }, 6000);
   ws.onopen = () => ws.send(JSON.stringify({ t: 'admin', key }));
   ws.onclose = () => { if ($('main').style.display === 'block') { $('lmsg').textContent = '接続が切れました。もう一度ひらいてください'; $('main').style.display = 'none'; $('login').style.display = 'block'; } };
   ws.onerror = () => { $('lmsg').textContent = 'サーバーにつながりませんでした'; };
