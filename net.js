@@ -4,7 +4,8 @@
 //
 // ── サーバーとのやりとり（WebSocket, JSON） ─────────────────────────
 // こちら → サーバー
-//   {t:'hello', name, rp}            接続したら最初に送る
+//   {t:'hello', name, rp, did}       接続したら最初に送る（did=端末ごとの見えないID）
+//   サーバー→: {t:'warn'}（不正の警告） {t:'banned'}（BAN。オンライン対戦に入れない）
 //   {t:'find'} / {t:'cancel'}        ランクマッチを探す／やめる
 //   {t:'create', n}                  ルームを作る（n=問題数）
 //   {t:'join', code}                 ルームに入る
@@ -31,9 +32,9 @@
 //                       {t:'done', seat}（だれかが答え終わった） {t:'allEnd', oks, scores}（時間切れ・全員終わり）
 // ──────────────────────────────────────────────────────
 
-export const TIERS = ['ビギナー', 'ブロンズ', 'シルバー', 'ゴールド', 'マスター'];
+export const TIERS = ['ビギナー', 'ブロンズ', 'シルバー', 'プラチナ', 'ゴールド', 'マスター'];
 export const SUBS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
-export const TIER_COLORS = ['#9fd8a8', '#d8915a', '#cfd6e4', '#ffcc33', '#c58bff'];
+export const TIER_COLORS = ['#9fd8a8', '#d8915a', '#cfd6e4', '#8ff0ff', '#ffcc33', '#c58bff'];
 export const RP_PER = 100;               // ひとつ上がるのに必要なポイント
 export const MAX_IDX = TIERS.length * 3 - 1;
 export function rankIdx(rp) { return Math.max(0, Math.min(MAX_IDX, Math.floor(rp / RP_PER))); }
@@ -62,6 +63,7 @@ export const LV_MIX = [
   [10, 40, 35, 15, 0, 0],  // ビギナー
   [0, 15, 40, 35, 10, 0],  // ブロンズ
   [0, 0, 20, 40, 30, 10],  // シルバー
+  [0, 0, 10, 30, 40, 20],  // プラチナ
   [0, 0, 0, 20, 45, 35],   // ゴールド
   [0, 0, 0, 0, 25, 75],    // マスター（ほぼ超難問）
 ];
@@ -134,11 +136,11 @@ export class CloudNet {
   on(t, fn) { this.h[t] = fn; }
   emit(t, m) { (this.h[t] || (() => {}))(m); }
   connect(me) {
-    if (this.ready) { this.ready.then(() => this.send({ t: 'hello', name: me.name, rp: me.rp })).catch(() => {}); return this.ready; }
+    if (this.ready) { this.ready.then(() => this.send({ t: 'hello', name: me.name, rp: me.rp, did: me.did })).catch(() => {}); return this.ready; }
     this.ready = new Promise((res, rej) => {
       let opened = false;
       const ws = this.ws = new WebSocket(this.url);
-      ws.onopen = () => { opened = true; this.send({ t: 'hello', name: me.name, rp: me.rp }); res(); };
+      ws.onopen = () => { opened = true; this.send({ t: 'hello', name: me.name, rp: me.rp, did: me.did }); res(); };
       ws.onerror = () => { if (!opened) rej(new Error('サーバーにつながりませんでした。少し待ってからもう一度ためしてね')); };
       ws.onclose = () => { this.ready = null; this.ws = null; if (opened) this.emit('close', {}); };
       ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } this.emit(m.t, m); };

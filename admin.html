@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>管理画面</title>
+<style>
+  :root{--bg:#0d1020;--card:#1a1e33;--line:#2c3252;--tx:#fff;--sub:#9aa3c0;--red:#ff5a5a;--ylw:#ffc23d;--grn:#5fd08a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,'Hiragino Sans','Noto Sans CJK JP',sans-serif;padding:16px;padding-bottom:40px}
+  h1{font-size:22px;margin:4px 0 14px}
+  h2{font-size:17px;margin:22px 0 8px;color:var(--sub)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+  input,button,select{font:inherit;font-size:16px;border-radius:10px;border:1px solid var(--line);padding:10px 14px}
+  input{background:#0b0e1c;color:#fff;width:100%;max-width:320px}
+  button{background:#2a3157;color:#fff;font-weight:800;cursor:pointer}
+  button.warn{background:#6b5300;border-color:var(--ylw)}
+  button.ban{background:#6b1b1b;border-color:var(--red)}
+  .p{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .p .nm{font-size:18px;font-weight:900;min-width:120px}
+  .p .info{flex:1;min-width:200px;color:var(--sub);font-size:14px;line-height:1.6}
+  .p .act{display:flex;gap:8px;flex-wrap:wrap}
+  .sus{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:900}
+  .s0{background:#23402f;color:var(--grn)}.s1{background:#40401f;color:#e6e070}.s2{background:#4d3610;color:var(--ylw)}.s3{background:#561c1c;color:var(--red)}
+  .msg{color:var(--sub);font-size:14px;margin-top:8px}
+  .empty{color:var(--sub);padding:10px 2px}
+  #main{display:none}
+</style></head><body>
+<h1>クイズアリーナ 管理画面</h1>
+
+<div id="login" class="card">
+  <div style="margin-bottom:10px">合言葉を入れてください</div>
+  <div class="p"><input id="key" type="password" autocomplete="current-password"><button id="go">ひらく</button></div>
+  <div class="msg" id="lmsg"></div>
+</div>
+
+<div id="main">
+  <div class="msg">怪しさは「自分のランクより難しい問題の正解」「問題が全部出てからの長い答えの正解」「正解率」から出しています。高くても本当に強い人のこともあるので、まずは警告がおすすめです。</div>
+  <h2>いまつながっている人 <span id="cnt"></span></h2>
+  <div id="list"></div>
+  <h2>BANした人</h2>
+  <div id="bans"></div>
+  <div style="margin-top:24px"><button id="out">ログアウト</button></div>
+</div>
+
+<script type="module">
+import { SERVER_URL, rankName } from './net.js';
+const $ = id => document.getElementById(id);
+const SUS = ['低い', 'ちょっと', '高い', 'とても高い'];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let ws = null, players = []; const sel = {};
+const saved = (() => { try { return localStorage.getItem('hs_admin') || ''; } catch (e) { return ''; } })();
+if (saved) { $('key').value = saved; open(saved); }
+$('go').onclick = () => open($('key').value);
+$('key').onkeydown = e => { if (e.key === 'Enter') open($('key').value); };
+$('out').onclick = () => { try { localStorage.removeItem('hs_admin'); } catch (e) {} location.reload(); };
+
+function open(key) {
+  if (!key) return;
+  $('lmsg').textContent = 'つないでいます…';
+  if (ws) ws.close();
+  ws = new WebSocket(SERVER_URL);
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'admin', key }));
+  ws.onclose = () => { if ($('main').style.display === 'block') { $('lmsg').textContent = '接続が切れました。もう一度ひらいてください'; $('main').style.display = 'none'; $('login').style.display = 'block'; } };
+  ws.onerror = () => { $('lmsg').textContent = 'サーバーにつながりませんでした'; };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'adminNg') { $('lmsg').textContent = m.msg; }
+    if (m.t === 'adminOk') { try { localStorage.setItem('hs_admin', key); } catch (e) {} $('login').style.display = 'none'; $('main').style.display = 'block'; $('lmsg').textContent = ''; }
+    if (m.t === 'list') draw(m);
+  };
+}
+const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
+
+function draw(m) {
+  players = m.players.sort((a, b) => b.sus - a.sus || b.st.ok - a.st.ok);
+  $('cnt').textContent = `（${players.length}人）`;
+  $('list').innerHTML = players.length ? players.map(p => {
+    const n = p.st.ok + p.st.ng, acc = n ? Math.round(p.st.ok / n * 100) : 0;
+    return `<div class="card p"><div class="nm">${esc(p.name)}</div>
+      <div class="info"><span class="sus s${p.sus}">怪しさ：${SUS[p.sus]}</span> ${esc(rankName(p.rp))} ・ ${esc(p.where)}<br>
+      正解 ${p.st.ok} / 不正解 ${p.st.ng}（${acc}%）・ 格上の難問の正解 ${p.st.hard} ・ 全部出てからの正解 ${p.st.late} ・ 試合 ${p.st.games}<br>
+      端末 ${esc(p.dev)}${p.warned ? ` ・ <b style="color:var(--ylw)">警告 ${p.warned}回</b>` : ''}</div>
+      <div class="act"><button class="warn" data-w="${p.id}">警告</button>
+      <select data-d="${p.id}">${[[1, '1日'], [7, '7日'], [30, '30日'], [0, 'ずっと']].map(([v, l]) => `<option value="${v}"${(sel[p.id] ?? 7) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <button class="ban" data-b="${p.id}">BAN</button></div></div>`;
+  }).join('') : '<div class="empty">いまはだれもつながっていません</div>';
+  $('bans').innerHTML = m.bans.length ? m.bans.map(b => `<div class="card p"><div class="nm">${esc(b.name)}</div>
+      <div class="info">${b.kind === 'ip' ? '回線' : '端末'}のBAN ・ ${new Date(b.at).toLocaleString('ja-JP')}〜${b.until ? new Date(b.until).toLocaleString('ja-JP') + 'まで' : 'ずっと'}</div>
+      <div class="act"><button data-u="${esc(b.key)}">解除</button></div></div>`).join('') : '<div class="empty">いません</div>';
+}
+document.addEventListener('change', e => { if (e.target.dataset.d) sel[e.target.dataset.d] = +e.target.value; });
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  const p = id => players.find(x => x.id === +id);
+  if (t.dataset.w) { const x = p(t.dataset.w); if (x && confirm(`${x.name} に警告を出しますか？`)) send({ t: 'warn', id: x.id }); }
+  if (t.dataset.b) { const x = p(t.dataset.b), d = +document.querySelector(`select[data-d="${t.dataset.b}"]`).value;
+    if (x && confirm(`${x.name} を${d ? d + '日' : 'ずっと'}BANしますか？`)) send({ t: 'ban', id: x.id, days: d }); }
+  if (t.dataset.u && confirm('BANを解除しますか？')) send({ t: 'unban', key: t.dataset.u });
+});
+</script>
+</body></html>

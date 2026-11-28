@@ -2,7 +2,7 @@
 // ・ランクマッチ（近いランクから探して、待つほど範囲をひろげる。30秒でそろわなければCPUで埋める）
 // ・ルーム戦（4けたの部屋番号）
 // ・試合の進行と早押しの判定（だれが一番に押したかは、サーバーに届いた順で決める）
-import { tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, botRpNear, T, wrongChar, MAX_ROOM, botBuzzAt, ALL_LIMS, botAllPlan } from '../../net.js';
+import { TIERS, tierOf, searchRange, mixForTiers, LV_MIX, botParams, rankStrength, ansLimit, CHARS_PER_SEC, BOT_FILL_SEC, botName, botRpInTier, botRpNear, T, wrongChar, MAX_ROOM, botBuzzAt, ALL_LIMS, botAllPlan } from '../../net.js';
 import lv1 from '../../questions/lv1.json';
 import lv2 from '../../questions/lv2.json';
 import lv3 from '../../questions/lv3.json';
@@ -44,12 +44,17 @@ export class Hub {
     this.rooms = new Map();      // 部屋番号 → {code, members:[cl], bots:[], n}
     this.games = new Set();
     this.matchTimer = null;
+    this.env = env; this.clients = new Set(); this.admins = new Set(); this.adminTimer = null;
+    this.bans = { did: {}, ip: {} };   // BANリスト（サーバーの保存場所に残す）
+    state.blockConcurrencyWhile(async () => { const b = await state.storage.get('bans'); if (b) this.bans = b; });
   }
 
   fetch(req) {
     const pair = new WebSocketPair(), [client, ws] = [pair[0], pair[1]];
     ws.accept();
-    const cl = { id: this.nextId++, ws, name: 'ななし', rp: 0, room: null, game: null, seat: -1 };
+    const cl = { id: this.nextId++, ws, name: 'ななし', rp: 0, room: null, game: null, seat: -1, did: '', ip: req.headers.get('CF-Connecting-IP') || '',
+      st: { ok: 0, ng: 0, hard: 0, late: 0, games: 0 }, warned: 0, tries: 0 };
+    this.clients.add(cl);
     ws.addEventListener('message', e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } try { this.onMsg(cl, m); } catch (err) { console.log('msg error', err); } });
     const bye = () => this.leave(cl);
     ws.addEventListener('close', bye); ws.addEventListener('error', bye);
@@ -58,9 +63,72 @@ export class Hub {
 
   send(cl, m) { try { if (cl && !cl.gone) cl.ws.send(JSON.stringify(m)); } catch (_) {} }
 
+  // ── 警告・BAN（管理画面から） ──
+  isBanned(cl) {
+    const now = Date.now(), d = cl.did && this.bans.did[cl.did], p = cl.ip && this.bans.ip[cl.ip];
+    return !!((d && (!d.until || d.until > now)) || (p && p.until > now));
+  }
+  kickBanned(cl) { this.send(cl, { t: 'banned' }); setTimeout(() => { try { cl.ws.close(4003, 'banned'); } catch (_) {} }, 300); }
+  sus(st) {   // 怪しさ：むずかしい問題を、問題が全部出てから高い正解率で当て続ける人ほど高い
+    const n = st.ok + st.ng, acc = n ? st.ok / n : 0;
+    const pts = st.hard * 2 + st.late + (n >= 5 && acc >= .9 ? 3 : 0);
+    return pts >= 10 ? 3 : pts >= 5 ? 2 : pts >= 2 ? 1 : 0;
+  }
+  adminList() {
+    const where = c => c.game ? (c.game.mode === 'rank' ? 'ランクマッチ中' : 'ルーム戦中') : c.room ? `ルーム${c.room.code}` : this.queue.some(e => e.cl === c) ? 'さがし中' : 'ホーム';
+    const players = [...this.clients].filter(c => !c.admin && !c.gone).map(c => ({ id: c.id, name: c.name, rp: c.rp, dev: c.did.slice(0, 6), where: where(c), st: c.st, sus: this.sus(c.st), warned: c.warned }));
+    const now = Date.now(), bans = [];
+    for (const [k, v] of Object.entries(this.bans.did)) if (!v.until || v.until > now) bans.push({ kind: 'did', key: k, name: v.name, at: v.at, until: v.until || 0 });
+    for (const [k, v] of Object.entries(this.bans.ip)) if (v.until > now) bans.push({ kind: 'ip', key: k, name: v.name, at: v.at, until: v.until });
+    return { t: 'list', players, bans };
+  }
+  pushAdmin() { const m = this.adminList(); this.admins.forEach(a => this.send(a, m)); }
+  async saveBans() {
+    const now = Date.now();   // 期限切れは消す
+    for (const k of Object.keys(this.bans.ip)) if (this.bans.ip[k].until <= now) delete this.bans.ip[k];
+    await this.state.storage.put('bans', this.bans);
+  }
+  onAdmin(cl, m) {
+    if (m.t === 'admin') {
+      const key = this.env && this.env.ADMIN_KEY;
+      if (!key || typeof m.key !== 'string' || m.key !== key) {
+        this.send(cl, { t: 'adminNg', msg: key ? '合言葉がちがいます' : 'サーバーに合言葉がまだ登録されていません' });
+        if (++cl.tries >= 3) try { cl.ws.close(); } catch (_) {}
+        return;
+      }
+      cl.admin = true; this.admins.add(cl); this.send(cl, { t: 'adminOk' }); this.pushAdmin();
+      if (!this.adminTimer) this.adminTimer = setInterval(() => { if (!this.admins.size) { clearInterval(this.adminTimer); this.adminTimer = null; } else this.pushAdmin(); }, 2000);
+      return;
+    }
+    if (!cl.admin) return;
+    const target = [...this.clients].find(c => c.id === m.id && !c.gone);
+    if (m.t === 'warn' && target) { target.warned++; this.send(target, { t: 'warn' }); }
+    if (m.t === 'ban' && target) {
+      const at = Date.now(), days = [1, 7, 30, 0].includes(+m.days) ? +m.days : 0;
+      if (target.did) this.bans.did[target.did] = { name: target.name, at, until: days ? at + days * 864e5 : 0 };
+      if (target.ip) this.bans.ip[target.ip] = { name: target.name, at, until: at + Math.min(days || 7, 7) * 864e5 };   // 回線は家族やお店と同じこともあるので最大7日
+      this.saveBans();
+      [...this.clients].filter(c => !c.admin && !c.gone && ((target.did && c.did === target.did) || c === target)).forEach(c => this.kickBanned(c));
+    }
+    if (m.t === 'unban' && typeof m.key === 'string') {
+      // 同じ人のIDと回線をまとめて解除する
+      const v = this.bans.did[m.key] || this.bans.ip[m.key];
+      delete this.bans.did[m.key]; delete this.bans.ip[m.key];
+      if (v) for (const t of ['did', 'ip']) for (const [k, x] of Object.entries(this.bans[t])) if (x.at === v.at && x.name === v.name) delete this.bans[t][k];
+      this.saveBans();
+    }
+    this.pushAdmin();
+  }
+
   onMsg(cl, m) {
+    if (m.t === 'admin' || m.t === 'warn' || m.t === 'ban' || m.t === 'unban') return this.onAdmin(cl, m);
+    if (m.t !== 'hello' && this.isBanned(cl)) return this.kickBanned(cl);
     switch (m.t) {
-      case 'hello': cl.name = cleanName(m.name); cl.rp = Math.max(0, Math.min(5000, Math.floor(+m.rp || 0))); break;
+      case 'hello':
+        cl.name = cleanName(m.name); cl.rp = Math.max(0, Math.min(5000, Math.floor(+m.rp || 0)));
+        cl.did = String(m.did || '').replace(/[^\w-]/g, '').slice(0, 40);
+        if (this.isBanned(cl)) return this.kickBanned(cl);
+        break;
       case 'find': if (cl.game) return; this.leaveRoom(cl); this.dequeue(cl); this.queue.push({ cl, t0: Date.now() }); this.startMatchTimer(); this.matchTick(); break;
       case 'cancel': this.dequeue(cl); break;
       case 'create': this.createRoom(cl, m.n); break;
@@ -75,7 +143,7 @@ export class Hub {
   }
 
   leave(cl) {
-    if (cl.gone) return; cl.gone = true;
+    if (cl.gone) return; cl.gone = true; this.clients.delete(cl); this.admins.delete(cl);
     this.dequeue(cl); this.leaveRoom(cl);
     if (cl.game) cl.game.playerGone(cl.seat);
   }
@@ -125,7 +193,7 @@ export class Hub {
   addBot(cl) {
     const r = cl.room; if (!r || r.members[0] !== cl || r.playing || r.members.length + r.bots.length >= MAX_ROOM) return;
     const used = new Set([...r.members.map(c => c.name), ...r.bots.map(b => b.name)]);
-    const t = Math.max(0, Math.min(4, tierOf(cl.rp) + Math.floor(Math.random() * 3) - 1)), rp = botRpInTier(t);
+    const t = Math.max(0, Math.min(TIERS.length - 1, tierOf(cl.rp) + Math.floor(Math.random() * 3) - 1)), rp = botRpInTier(t);
     r.bots.push({ name: botName(used), rp, str: rankStrength(rp) }); this.roomCast(r);
   }
   leaveRoom(cl) {
@@ -196,7 +264,7 @@ class Game {
   }
   allEnd() {
     this.phase = 'judge';
-    const oks = []; this.done.forEach((v, i) => { if (v === true) { oks.push(i); this.scores[i] += 10; } });
+    const oks = []; this.done.forEach((v, i) => { if (v === true) { oks.push(i); this.scores[i] += 10; } if (v !== null) this.note(i, v === true, false); });
     this.cast({ t: 'allEnd', oks, scores: this.scores });
     this.later(JUDGE_OK_MS, () => this.reveal());
   }
@@ -264,6 +332,7 @@ class Game {
   }
   judge(ok, ch) {
     const i = this.buzzer; this.phase = 'judge'; this.lastOk = ok;
+    this.note(i, ok, this.base >= this.Q.q.length);
     if (ok) this.scores[i] += 10; else { this.scores[i] -= 5; this.locked.add(i); }
     this.cast(ch ? { t: 'judge', seat: i, ok, ch } : { t: 'judge', seat: i, ok });
     this.later(ok ? JUDGE_OK_MS : JUDGE_NG_MS, () => { if (ok || this.locked.size >= this.seats.length) this.reveal(); else this.read(this.base, false); });
@@ -273,7 +342,12 @@ class Game {
     const ms = this.lastOk ? REVEAL_OK_MS : REVEAL_MS; this.lastOk = false;
     this.later(ms, () => { if (this.qi + 1 >= this.questions.length) this.end(); else this.intro(this.qi + 1); });
   }
-  end() { this.cast({ t: 'end', scores: this.scores }); this.stop(); }
+  end() { this.cast({ t: 'end', scores: this.scores }); this.seats.forEach(s => { if (s.cl) s.cl.st.games++; }); this.stop(); }
+  // 管理画面の「怪しさ」用に、人の答えの記録をとる（むずかしい問題の正解・問題が全部出てからの正解）
+  note(i, ok, late) {
+    const cl = this.seats[i] && this.seats[i].cl; if (!cl) return;
+    if (ok) { cl.st.ok++; if (this.Q.lv >= 5 && this.Q.lv - 2 > this.seats[i].tier) cl.st.hard++; if (late && this.Q.y.length >= 5) cl.st.late++; } else cl.st.ng++;
+  }
   stop() {
     this.over = true; clearInterval(this.tick); this.timers.forEach(t => clearTimeout(t));
     this.seats.forEach(s => { if (s.cl) { s.cl.game = null; s.cl.seat = -1; } });

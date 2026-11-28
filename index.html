@@ -175,6 +175,10 @@
 <div id="next"></div>
 <div id="answer"><div id="tbar"><i></i></div><div id="choices"></div></div>
 <div id="banner"><div id="bannerText"></div><small id="bannerSub"></small></div>
+<div id="alertBox" style="display:none;position:fixed;inset:0;z-index:99;background:#000c;align-items:center;justify-content:center;padding:20px">
+  <div style="max-width:420px;background:#1b1f33;border:3px solid #ff5a5a;border-radius:18px;padding:22px;text-align:center;color:#fff">
+    <div id="alertT" style="font-size:22px;font-weight:900;color:#ff7a7a;margin-bottom:10px"></div><div id="alertM" style="font-size:15px;line-height:1.7"></div>
+    <button id="alertOk" style="margin-top:16px;padding:10px 30px;font-size:16px;font-weight:900;border:0;border-radius:12px;background:#ff5a5a;color:#fff">わかりました</button></div></div>
 <div id="vs"><h3 id="vsTitle"></h3><div class="row" id="vsRow"></div></div>
 <div id="lost"><small>押し負け…</small><b id="lostNum"></b></div>
 <div class="panel" id="home"><div class="card">
@@ -197,7 +201,7 @@
   <div class="row"><div class="lab">相手の強さ</div><div class="seg" id="optLv">
     <button data-v="0">やさしい<small>ゆっくり押す</small></button><button data-v="1">ふつう<small>まあまあ速い</small></button><button data-v="2">つよい<small>かなり速い</small></button></div></div>
   <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optQ">
-    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="4">激ムズ</button></div></div>
+    <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button><button data-v="5">激ムズ</button></div></div>
   <div class="row"><div class="lab">問題の数</div><div class="seg" id="optN">
     <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
   <button class="btn go" id="goBtn">スタート</button>
@@ -227,7 +231,7 @@
     <div class="row"><div class="lab">制限時間</div><div class="seg" id="optRL">
       <button data-v="10">10秒</button><button data-v="20">20秒</button><button data-v="30">30秒</button></div></div>
     <div class="row"><div class="lab">問題のむずかしさ</div><div class="seg" id="optRQ">
-      <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="3">むずかしい</button><button data-v="4">激ムズ</button></div></div>
+      <button data-v="-1">おまかせ<small>ランクに合わせる</small></button><button data-v="0">かんたん</button><button data-v="2">ふつう</button><button data-v="4">むずかしい</button><button data-v="5">激ムズ</button></div></div>
     <div class="row"><div class="lab">問題の数</div><div class="seg" id="optRN">
       <button data-v="5">5問</button><button data-v="10">10問</button><button data-v="20">20問</button></div></div>
     <div class="btns"><button class="btn sec" id="rBot">CPUを入れる</button><button class="btn sec" id="rKick">CPUを減らす</button><button class="btn go" id="rStart" style="margin:0">スタート</button></div>
@@ -1285,6 +1289,17 @@ const net = makeNet();
 const ME_DATA = load('hs_me', { name: 'あなた', rp: 0, peak: 0 });
 const STATS = load('hs_stats', { games: { solo: 0, rank: 0, room: 0 }, wins: 0, ok: 0, ng: 0, posSum: 0, posN: 0, hist: [] });
 function saveMe() { save('hs_me', ME_DATA); save('hs_stats', STATS); }
+// プラチナ追加（ゴールドの前）にあわせて、前のデータをずらす（1回だけ）
+if (!load('hs_v6', false)) {
+  if (ME_DATA.rp >= 900) ME_DATA.rp += 300; if ((ME_DATA.peak || 0) >= 900) ME_DATA.peak += 300;
+  STATS.hist.forEach(h => { if (h.rp >= 900) h.rp += 300; });
+  ['hs_qd', 'hs_rq'].forEach(k => { const v = load(k, -1); if (v >= 3) save(k, v + 1); });
+  try { const ks = Object.keys(localStorage).filter(k => /^hs_best_.+_[34]$/.test(k)).sort().reverse();
+    ks.forEach(k => { const nk = k.replace(/_(\d)$/, (_, d) => '_' + (+d + 1)); localStorage.setItem(nk, localStorage.getItem(k)); localStorage.removeItem(k); }); } catch (e) {}
+  saveMe(); save('hs_v6', true);
+}
+// 端末ごとの見えないID（アカウントなしで警告・BANするため）
+if (!ME_DATA.did) { try { ME_DATA.did = crypto.randomUUID(); } catch (e) { ME_DATA.did = Date.now().toString(36) + Math.random().toString(36).slice(2, 12); } saveMe(); }
 G.lv = load('hs_lv', 1); G.n = load('hs_n', 10); G.qd = load('hs_qd', -1); G.rn = load('hs_rn', 10); G.rq = load('hs_rq', -1);
 
 const PANELS = ['home', 'menu', 'match', 'room', 'stats', 'result'];
@@ -1506,10 +1521,16 @@ net.on('end', m => {
   m.scores.forEach((v, s) => G.scores[cli(s)] = v);
   G.phase = 'result'; drawVision(); SFX.applause(1.2, 4); crowd.clap = 1.2; ui.hint.style.opacity = 0; ui.answer.style.display = 'none'; setTimeout(finishMatch, 2200);
 });
+// 管理者からの警告・BAN
+function showAlert(t, m) { $('alertT').textContent = t; $('alertM').innerHTML = m; $('alertBox').style.display = 'flex'; }
+$('alertOk').addEventListener('click', () => { $('alertBox').style.display = 'none'; });
+let banned = false;
+net.on('warn', () => showAlert('⚠ 警告', 'AIや検索などを使って答えている疑いがあります。<br>クイズは自分の力で答えてね。<br>続けるとオンライン対戦ができなくなります。'));
+net.on('banned', () => { banned = true; showAlert('オンライン対戦が使えません', 'ルール違反のため、この端末ではオンライン対戦ができなくなりました。<br>ひとりで練習は今までどおり遊べます。'); });
 net.on('close', () => {
   const inGame = G.online && G.phase !== 'result' && G.phase !== 'menu';
   G.online = false; room = null; ui.answer.style.display = 'none';
-  if (inGame || G.phase === 'menu') { openHome(); $('netTxt').textContent = 'サーバーとの接続が切れました。もう一度ためしてね'; }
+  if (inGame || G.phase === 'menu') { openHome(); $('netTxt').textContent = banned ? 'この端末ではオンライン対戦ができません' : 'サーバーとの接続が切れました。もう一度ためしてね'; }
 });
 
 // ── 試合の開始と終了 ──
